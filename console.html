@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>送信・設定 | radio-timer</title>
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/console.css">
+</head>
+<body>
+<div class="topbar"><div class="topbar-inner">
+  <span class="brand">radio-timer <small>v8 console</small></span>
+  <span id="roomBadge" class="pill">ROOM ----</span>
+  <span id="conn" class="pill">未接続</span>
+  <span style="flex:1"></span>
+  <a href="index.html" class="muted" style="font-size:13px">ホーム</a>
+</div></div>
+
+<div id="enter" class="wrap" style="display:none">
+  <div class="card" style="max-width:560px;margin:6vh auto">
+    <h2>送信端末</h2>
+    <p class="muted">新規ルームを作るか、既存IDで開きます。表示側には <b>display.html?id=XXXXXX</b> を配布します。</p>
+    <div class="btnrow"><button id="createBtn">＋ 新規ルーム作成</button></div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <input id="openId" inputmode="numeric" maxlength="6" placeholder="既存ID（例: 123456）">
+      <button id="openBtn" class="secondary" style="width:auto">開く</button>
+    </div>
+    <p id="enterMsg" class="err"></p>
+  </div>
+</div>
+
+<main id="main" class="wrap">
+  <div id="adminWarn" class="card" style="display:none;border-color:#7f1d1d">
+    <b>閲覧モード</b> <span class="muted">— 管理キーなしのため送信できません。新規作成時のURL（#k=付き）で開き直してください。</span>
+  </div>
+
+  <div class="console-grid">
+    <div style="display:grid;gap:12px">
+      <section class="card">
+        <h2>ルーム <span class="sub">共有・演台連携</span></h2>
+        <div class="state-line" style="margin-bottom:8px">
+          <span id="keyState" class="pill">管理キー確認中</span>
+          <span id="stageOnline" class="pill">演台 -</span>
+        </div>
+        <div class="qrbox">
+          <img id="qr" alt="表示側QR">
+          <div style="flex:1;min-width:0">
+            <button id="openStage" class="secondary" style="width:100%">表示側を開く</button>
+            <div class="url-line"><input id="stageUrl" readonly><button id="copyStage" class="secondary" style="width:auto">📋</button></div>
+            <button id="copyAdmin" class="ghost" style="width:100%;margin-top:6px;font-size:13px">管理URLをコピー（取扱注意）</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>プレビュー <span class="sub">送信前確認</span></h2>
+        <div class="muted" style="font-size:12px">状態: <span id="svState">-</span> / <span id="countMeta">-</span></div>
+        <div id="pvTitle" style="font-weight:900;font-size:20px;margin:4px 0">—</div>
+        <div id="pvRemain" class="big-remain">--:--:--</div>
+        <div id="pvNext" class="muted"></div>
+      </section>
+
+      <section class="card">
+        <h2>補足メッセージ <span class="sub">即時反映</span></h2>
+        <input id="msgInput" placeholder="例: 次はCM明けゲスト登場です" maxlength="500">
+        <div class="btnrow" style="margin-top:8px">
+          <button id="sendMsgBtn" class="secondary">送信</button>
+          <button id="clearMsgBtn" class="secondary">消去</button>
+        </div>
+        <div style="display:flex;gap:14px;margin-top:10px;flex-wrap:wrap">
+          <label class="switch"><input type="checkbox" id="flashTgl"> テロップ点滅</label>
+          <label class="switch"><input type="checkbox" id="promptTgl"> カンペのみ表示</label>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>警告しきい値 <span class="sub">表示側の色変化</span></h2>
+        <div class="row2">
+          <div class="field"><label>黄表示（残り何秒）</label><input id="warn1" type="number" min="0" max="3600" value="60"></div>
+          <div class="field"><label>赤表示（残り何秒）</label><input id="warn2" type="number" min="0" max="3600" value="30"></div>
+        </div>
+        <button id="saveWarn" class="secondary">警告時間を保存</button>
+      </section>
+    </div>
+
+    <div style="display:grid;gap:12px">
+      <section class="card">
+        <h2>番組進行表 <span class="sub">Ctrl+Enterで送信</span></h2>
+        <p class="hint">絶対 <code>10:40:00 番組開始</code> ／ 相対 <code>5分30秒 コーナー開始</code> <code>10秒 スタート</code>。絶対・相対は混在可。右端に確定時刻をプレビューします。</p>
+        <div class="preset-row" style="margin-bottom:8px">
+          <button class="secondary" data-preset="5分 オープニング&#10;10分 ゲストトーク&#10;2分 CM&#10;3分 エンディング">プリセット: 20分番組</button>
+          <button class="secondary" data-preset="10:00:00 放送開始&#10;5分 ニュース&#10;10分 特集&#10;5分 天気・交通&#10;1分 終了">プリセット: 定時枠</button>
+          <button class="secondary" data-preset="30秒 スタンバイ&#10;10秒 カウントダウン&#10;1分 本番">プリセット: 収録</button>
+        </div>
+        <textarea id="bulk" spellcheck="false"></textarea>
+        <div id="errBox" style="margin:6px 0"></div>
+        <div class="muted" id="countMeta" style="font-size:12px;margin-bottom:8px"></div>
+        <table class="ed"><thead><tr><th>形式</th><th>時刻/差分</th><th>タイトル</th><th>確定</th><th></th></tr></thead>
+        <tbody id="edBody"></tbody></table>
+        <div class="btnrow" style="margin-top:8px">
+          <button id="addRow" class="secondary">＋ 行追加</button>
+          <button id="clearRows" class="secondary">クリア</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>送出 <span class="sub"><span id="toast"></span></span></h2>
+        <div class="btnrow">
+          <button id="publishBtn">📡 送信・開始</button>
+          <button id="resumeBtn" class="secondary">▶ 再開</button>
+          <button id="stopBtn" class="danger">■ 停止</button>
+        </div>
+        <div class="btnrow" style="margin-top:8px">
+          <button id="adjPlus" class="secondary">＋60秒ずらし</button>
+          <button id="adjMinus" class="secondary">−30秒ずらし</button>
+          <button id="resetBtn" class="secondary">リセット</button>
+        </div>
+        <p class="hint">「ずらし」は全イベントを一括シフトします（尺が延びた・巻いた時用）。補足メッセージは入力即時送信されます。</p>
+      </section>
+    </div>
+  </div>
+</main>
+
+<div class="sticky-bar">
+  <button id="publishBtn2">📡 送信</button>
+  <button id="stopBtn2" class="danger" style="flex:.6" onclick="document.getElementById('stopBtn').click()">■</button>
+</div>
+
+<script type="module" src="assets/js/console.js"></script>
+</body>
+</html>

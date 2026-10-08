@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>タイマー設定端末</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2em;
+      background: #f5f5f5;
+      position: relative;
+      overflow-x: hidden;
+    }
+    /* 左右に並べる */
+    .flex-container {
+      display: flex;
+      gap: 1em;
+    }
+    .flex-container > * {
+      width: 50%;
+    }
+    textarea {
+      height: 200px;
+      font-size: 1.1em;
+    }
+    input[type="text"] {
+      height: 200px;
+      font-size: 1.1em;
+      padding: 0.5em;
+    }
+    button {
+      padding: 0.5em 1em;
+      font-size: 1.1em;
+      margin-top: 1em;
+      margin-right: 0.5em;
+    }
+    .info {
+      margin-top: 1em;
+      color: green;
+    }
+    /* タイマー表示部分（設定側内） */
+    .display-area {
+      margin-top: 2em;
+      text-align: center;
+      position: relative;
+      z-index: 2;
+    }
+    .display-area .title {
+      font-size: 2em;
+      margin-bottom: 0.5em;
+    }
+    .display-area .timer {
+      font-size: 5em;
+      margin-bottom: 0.5em;
+    }
+    .display-area .next-event {
+      font-size: 1em;
+      margin-bottom: 0.5em;
+      color: #555;
+    }
+    .progress-container {
+      width: 80%;
+      height: 30px;
+      background: #ddd;
+      border-radius: 15px;
+      margin: 0 auto;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      background: #4caf50;
+      width: 100%;
+      transition: width 0.5s;
+    }
+    .extra-message {
+      margin-top: 1em;
+      font-size: 1.2em;
+      color: blue;
+    }
+  </style>
+</head>
+<body>
+  <h1>タイマー設定端末</h1>
+  <p>
+    各行に下記のいずれかの形式で入力してください。<br>
+    <strong>絶対時刻指定</strong>: <code>10:40:00 番組開始</code> （本日の日付として扱います）<br>
+    <strong>相対時刻指定</strong>: <code>5分30秒 番組開始</code>、<code>10秒 スタート</code>、<code>3分 終了</code>
+  </p>
+  <!-- 左右に分ける -->
+  <div class="flex-container">
+    <textarea id="eventsInput" placeholder="5分 番組開始&#10;5秒 番組終了"></textarea>
+    <input type="text" id="extraMessageInput" placeholder="補足メッセージ入力">
+  </div>
+  <br>
+  <button id="setTimerBtn">タイマー設定・送信</button>
+  <button id="stopTimerBtn">タイマー停止</button>
+  <div class="info" id="info"></div>
+
+  <!-- タイマー表示部分（設定側プレビュー） -->
+  <div class="display-area">
+    <div class="title" id="eventTitle">待機中...</div>
+    <div class="timer" id="countdown">--:--:--</div>
+    <div class="next-event" id="nextEvent"></div>
+    <div class="progress-container">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <div class="extra-message" id="extraMessageDisplay"></div>
+  </div>
+
+  <!-- Firebase SDK (互換性版) の読み込み -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <script>
+    // ※ v8移行に伴いキーを除去（旧ver7参考保存）。利用時は各自の値に置換。
+    const firebaseConfig = {
+      apiKey: "REMOVED_SEE_FIREBASE_CONSOLE",
+      authDomain: "REMOVED",
+      databaseURL: "REMOVED",
+      projectId: "REMOVED",
+      storageBucket: "REMOVED",
+      messagingSenderId: "REMOVED",
+      appId: "REMOVED"
+    };
+
+    // Firebase 初期化
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let events = [];
+    let timerStopped = false;
+    let configTime = null;  // タイマー設定時刻（ミリ秒）
+
+    // Firebaseからタイマー情報を受信
+    db.ref('timer').on('value', snapshot => {
+      const data = snapshot.val();
+      if (data) {
+        timerStopped = data.stopped || false;
+        if (data.configTime) {
+          configTime = data.configTime;
+        }
+        if (data.events) {
+          events = data.events;
+          // 入力順（order プロパティ）でソート
+          events.sort((a, b) => a.order - b.order);
+        }
+        // 補足メッセージの更新
+        if (data.extraMessage !== undefined) {
+          document.getElementById('extraMessageDisplay').innerText = data.extraMessage;
+        }
+      }
+    });
+
+    function updateDisplay() {
+      if (timerStopped) {
+        document.getElementById('eventTitle').innerText = "タイマー停止中";
+        document.getElementById('countdown').innerText = "--:--:--";
+        document.getElementById('progressBar').style.width = "100%";
+        document.getElementById('nextEvent').innerText = "";
+        return;
+      }
+      if (events.length === 0) {
+        document.getElementById('eventTitle').innerText = "タイマー未設定";
+        document.getElementById('countdown').innerText = "--:--:--";
+        document.getElementById('progressBar').style.width = "100%";
+        document.getElementById('nextEvent').innerText = "";
+        return;
+      }
+
+      const now = new Date().getTime();
+      let currentEvent = null;
+      let currentIndex = -1;
+      for (let i = 0; i < events.length; i++) {
+        if (events[i].eventTime > now) {
+          currentEvent = events[i];
+          currentIndex = i;
+          break;
+        }
+      }
+      if (!currentEvent) {
+        currentEvent = events[events.length - 1];
+        currentIndex = events.length - 1;
+      }
+
+      const diff = currentEvent.eventTime - now;
+      if (diff < 0 && currentIndex === events.length - 1) {
+        document.getElementById('eventTitle').innerText = "--タイマー終了--";
+        document.getElementById('countdown').innerText = "00:00:00";
+        document.getElementById('progressBar').style.width = "0%";
+        document.getElementById('nextEvent').innerText = "";
+      } else if (diff < 0) {
+        document.getElementById('eventTitle').innerText = currentEvent.title;
+        document.getElementById('countdown').innerText = "00:00:00";
+        document.getElementById('progressBar').style.width = "0%";
+        if (currentIndex + 1 < events.length) {
+          // 次のイベントの時間差を計算（分・秒）
+          const duration = events[currentIndex + 1].eventTime - currentEvent.eventTime;
+          const minutes = Math.floor(duration / 60000);
+          const seconds = Math.floor((duration % 60000) / 1000);
+          document.getElementById('nextEvent').innerText = "次のイベント: " + events[currentIndex + 1].title + "（" + minutes + "分" + seconds + "秒）";
+        } else {
+          document.getElementById('nextEvent').innerText = "";
+        }
+      } else {
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+        const format = num => num.toString().padStart(2, '0');
+        document.getElementById('eventTitle').innerText = currentEvent.title;
+        document.getElementById('countdown').innerText = `${format(hours)}:${format(minutes)}:${format(seconds)}`;
+
+        let startTime = configTime;
+        if (currentIndex > 0 && events[currentIndex - 1].eventTime) {
+          startTime = events[currentIndex - 1].eventTime;
+        }
+        const totalDuration = currentEvent.eventTime - startTime;
+        const elapsed = now - startTime;
+        let progressPercent = totalDuration > 0 ? (elapsed / totalDuration) * 100 : 0;
+        progressPercent = Math.max(0, Math.min(100, progressPercent));
+        document.getElementById('progressBar').style.width = (100 - progressPercent) + "%";
+
+        if (currentIndex + 1 < events.length) {
+          const duration = events[currentIndex + 1].eventTime - currentEvent.eventTime;
+          const dMinutes = Math.floor(duration / 60000);
+          const dSeconds = Math.floor((duration % 60000) / 1000);
+          document.getElementById('nextEvent').innerText = "次のイベント: " + events[currentIndex + 1].title + "（" + dMinutes + "分" + dSeconds + "秒）";
+        } else {
+          document.getElementById('nextEvent').innerText = "";
+        }
+      }
+    }
+
+    setInterval(updateDisplay, 1000);
+
+    // タイマー設定・送信処理
+    document.getElementById('setTimerBtn').addEventListener('click', () => {
+      const inputText = document.getElementById('eventsInput').value;
+      const extraMessage = document.getElementById('extraMessageInput').value;
+      const lines = inputText.split('\n').filter(line => line.trim() !== '');
+      const newEvents = [];
+      const now = new Date();
+      let cumulative = now.getTime();
+      lines.forEach((line, index) => {
+        line = line.trim();
+        // 絶対時刻指定の場合（例："10:40:00 番組開始"）
+        if (/^\d{2}:\d{2}:\d{2}/.test(line)) {
+          const timePart = line.substr(0, 8);
+          const titlePart = line.substr(9).trim();
+          const [h, m, s] = timePart.split(':').map(Number);
+          let eventTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, s).getTime();
+          cumulative = eventTime;
+          newEvents.push({ mode: "absolute", time: timePart, title: titlePart, eventTime: eventTime, order: index });
+        }
+        // 相対時刻指定の場合（例："5分30秒 番組開始"）
+        else if (/^((\d+分)?(\d+秒)?)/.test(line)) {
+          const relativeRegex = /^((?:(\d+)分)?(?:(\d+)秒)?)[\s　]+(.+)$/;
+          const match = line.match(relativeRegex);
+          if (match) {
+            const minutes = match[2] ? parseInt(match[2]) : 0;
+            const seconds = match[3] ? parseInt(match[3]) : 0;
+            const titlePart = match[4].trim();
+            const offset = (minutes * 60 + seconds) * 1000;
+            let eventTime = cumulative + offset;
+            cumulative = eventTime;
+            newEvents.push({ mode: "relative", timestamp: eventTime, title: titlePart, eventTime: eventTime, order: index });
+          }
+        }
+      });
+      if (newEvents.length === 0) {
+        document.getElementById('info').innerText = "正しい形式のイベントが見つかりませんでした。";
+        return;
+      }
+      const timerData = { events: newEvents, configTime: now.getTime(), stopped: false, extraMessage: extraMessage };
+      db.ref('timer').set(timerData, error => {
+        if (error) {
+          document.getElementById('info').innerText = "エラー：" + error;
+        } else {
+          document.getElementById('info').innerText = "タイマー情報が送信されました。";
+        }
+      });
+    });
+
+    // 補足メッセージのリアルタイム更新
+    document.getElementById('extraMessageInput').addEventListener('input', function () {
+      const msg = this.value;
+      db.ref('timer/extraMessage').set(msg);
+    });
+
+    // タイマー停止処理
+    document.getElementById('stopTimerBtn').addEventListener('click', () => {
+      db.ref('timer/stopped').set(true, error => {
+        if (error) {
+          document.getElementById('info').innerText = "停止エラー：" + error;
+        } else {
+          document.getElementById('info').innerText = "タイマーが停止されました。";
+        }
+      });
+    });
+  </script>
+</body>
+</html>

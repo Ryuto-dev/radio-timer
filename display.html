@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>タイマー表示 | radio-timer</title>
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/display.css">
+</head>
+<body class="studio">
+<header class="studio-top">
+  <div id="onair" class="onair">ON AIR</div>
+  <span id="roomBadge" class="pill">ROOM ----</span>
+  <span id="conn" class="pill">未接続</span>
+  <span class="sp"></span>
+  <span id="dateLine" class="muted mono" style="font-size:13px"></span>
+  <span id="clock" class="clock mono">--:--:--</span>
+  <button id="soundBtn" class="icon-btn">🔔 音ON</button>
+  <button id="fsBtn" class="icon-btn">⛶ 全画面</button>
+</header>
+
+<main id="stage" class="stage">
+  <section id="panel" class="main-panel hide-when-prompt" data-status="normal">
+    <div class="ev-label">NOW</div>
+    <div id="evTitle" class="ev-title">待機中...</div>
+    <div id="count" class="count">--:--:--</div>
+    <div id="statusLine" class="status-line">STANDBY</div>
+    <div id="nextLine" class="next-line"></div>
+    <div class="bars">
+      <div class="bar-row"><span id="secLabel">区間</span><div class="bar"><i id="secBar"></i></div><span></span></div>
+      <div class="bar-row"><span>全体</span><div class="bar"><i id="totBar"></i></div><span id="totPct" class="mono">-%</span></div>
+    </div>
+  </section>
+
+  <div id="ticker" class="ticker" aria-live="polite"></div>
+
+  <section class="columns">
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <strong>番組進行表</strong><span class="sp" style="flex:1"></span><span id="runMeta" class="muted" style="font-size:12px"></span>
+      </div>
+      <ol id="rundown" class="rundown"></ol>
+    </div>
+    <div class="card">
+      <strong>表示について</strong>
+      <ul class="muted" style="font-size:13px;line-height:1.9;margin:8px 0 0;padding-left:18px">
+        <li>残り <b style="color:var(--warn1)">60秒</b> で黄、<b style="color:var(--warn2)">30秒</b> で赤に変化（送信側で変更可）</li>
+        <li>終了後は超過時間を赤背景で表示します</li>
+        <li>残り10秒からカウント音が鳴ります（🔔でON/OFF）</li>
+        <li>補足メッセージは下部テロップに即時反映されます</li>
+      </ul>
+      <p class="muted" style="font-size:12px">URLに <code>?id=XXXXXX</code> を付けて配布してください。例: このページを開いたままQR配布も可能です。</p>
+    </div>
+  </section>
+</main>
+
+<main id="enter" class="wrap">
+  <div class="card enter">
+    <h1 style="margin:0 0 8px">表示端末</h1>
+    <p class="muted">送信側から共有された6桁のルームIDを入力してください。</p>
+    <div style="display:flex;gap:8px">
+      <input id="joinId" inputmode="numeric" placeholder="例: 123456" maxlength="6">
+      <button id="joinBtn">表示開始</button>
+    </div>
+    <p class="muted" style="font-size:12px"><a href="index.html">← ホームに戻る</a></p>
+  </div>
+</main>
+
+<script type="module" src="assets/js/display.js"></script>
+</body>
+</html>

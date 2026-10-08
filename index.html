@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>radio-timer v8 — ラジオ現場タイマー</title>
+<link rel="stylesheet" href="assets/css/tokens.css">
+<style>
+.hero { text-align:center; padding: 36px 0 12px; }
+.hero h1 { font-size: clamp(28px,6vw,48px); margin:0; letter-spacing:.02em; }
+.hero p { color: var(--muted); }
+.menu { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:16px; }
+@media(max-width:700px){ .menu{grid-template-columns:1fr} }
+.menu .card { text-align:center; padding:28px 20px; }
+.menu .card h2{margin:0 0 6px}
+.feat { display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px }
+@media(max-width:700px){.feat{grid-template-columns:1fr}}
+.feat .card{font-size:14px;line-height:1.8}
+.joinrow{display:flex;gap:8px;margin-top:12px}
+.joinrow input{font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="topbar-inner">
+  <span class="brand">radio-timer <small>v8</small></span>
+  <span style="flex:1"></span>
+  <a href="rooms.html" style="font-size:13px">複数ルーム監視</a>
+</div></div>
+<div class="wrap">
+  <div class="hero">
+    <h1>📻 radio-timer</h1>
+    <p>送信側（操作）と表示側（スタジオ）を分離したラジオ現場タイマー。TIME-PON方式の軽量ポーリングでFirebase不要・Vercel完結。</p>
+    <div class="btnrow" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <button id="createBtn">＋ 新規ルーム作成</button>
+      <button id="demoBtn" class="secondary">デモ表示を開く</button>
+    </div>
+    <p id="msg" class="muted" style="font-size:13px"></p>
+  </div>
+  <div class="menu">
+    <div class="card">
+      <h2>🎛 送信・設定側</h2>
+      <p class="muted">番組進行表の作成・送出・補足メッセージ。スマホ対応。</p>
+      <div class="joinrow"><input id="cId" inputmode="numeric" maxlength="6" placeholder="ルームID"><button id="goConsole" class="secondary">開く</button></div>
+    </div>
+    <div class="card">
+      <h2>🖥 表示側</h2>
+      <p class="muted">スタジオの大画面用。ON AIR・カウント・進行表・テロップ。</p>
+      <div class="joinrow"><input id="dId" inputmode="numeric" maxlength="6" placeholder="ルームID"><button id="goDisplay" class="secondary">開く</button></div>
+    </div>
+  </div>
+  <div class="feat">
+    <div class="card"><b>Firebase脱却</b><br><span class="muted">Vercel Serverless + KV(Upstash Redis)のポーリングAPI。未設定でもローカル動作するので試用→本番へ段階移行できます。旧Firebase運用（ver7）は <a href="legacy/config-v7.html">legacy</a> に保存。</span></div>
+    <div class="card"><b>現場の正統進化</b><br><span class="muted">警告色（黄→赤）・超過表示・カウント音・＋60秒ずらし・カンペ点滅/のみ表示・演台オンライン監視・QR配布・複数ルーム監視。</span></div>
+    <div class="card"><b>運用</b><br><span class="muted">GitHub管理・Vercelホスト前提。 вы below READMEの手順でデプロイしてください。データ保持は7日、6桁ID＋管理キー方式。</span></div>
+  </div>
+</div>
+<script type="module">
+import { createRoom, consoleUrl } from './assets/js/store.js';
+const $ = (id) => document.getElementById(id);
+$('createBtn').onclick = async () => {
+  $('msg').textContent = '作成中…';
+  try {
+    const r = await fetch('/api/room', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ act: 'create' }) });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error);
+    try { localStorage.setItem('rt-key-' + j.id, j.adminKey); } catch {}
+    location.href = consoleUrl(j.id, j.adminKey);
+  } catch (e) { $('msg').textContent = 'API未接続のようです（ローカル直開き？）。vercel dev またはデプロイ後に作成できます: ' + e.message; }
+};
+$('demoBtn').onclick = () => location.href = 'display.html';
+$('goConsole').onclick = () => { const v = $('cId').value.replace(/\D/g, ''); if (v) location.href = 'console.html?id=' + v; };
+$('goDisplay').onclick = () => { const v = $('dId').value.replace(/\D/g, ''); if (v) location.href = 'display.html?id=' + v; };
+</script>
+</body>
+</html>

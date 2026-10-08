@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>複数ルーム監視 | radio-timer</title>
+<link rel="stylesheet" href="assets/css/tokens.css">
+<style>
+table.m{width:100%;border-collapse:separate;border-spacing:0;font-size:14px}
+table.m th,table.m td{border-bottom:1px solid var(--line);padding:10px 8px;text-align:left;vertical-align:middle}
+table.m th{color:var(--muted);font-size:12px}
+.remain{font-family:var(--mono);font-size:22px;font-weight:800}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="topbar-inner">
+  <span class="brand">radio-timer <small>multi</small></span>
+  <span style="flex:1"></span><a href="index.html" style="font-size:13px">ホーム</a>
+</div></div>
+<div class="wrap">
+  <div class="card">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <label>監視数 <input id="count" type="number" min="1" max="20" value="3" style="width:70px"></label>
+      <button id="apply" class="secondary">反映</button>
+      <span class="muted" style="font-size:12px">IDを入力すると2秒毎に各ルームの残り・カンペ・演台状態を監視します（管理キー不要）。</span>
+    </div>
+  </div>
+  <div class="card"><table class="m"><thead><tr><th>#</th><th>ルームID / 名前</th><th>残り</th><th>カンペ</th><th>演台</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
+</div>
+<script type="module">
+import { fmtHMS, resolveCurrent } from './assets/js/format.js';
+const $ = (id) => document.getElementById(id);
+let n = 3;
+function draw() {
+  const tb = $('rows'); tb.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${i + 1}</td>
+      <td><div style="display:flex;gap:6px"><input data-k="id" inputmode="numeric" placeholder="123456" style="width:110px"><input data-k="name" placeholder="第1スタジオ" style="flex:1"></div></td>
+      <td class="remain" data-k="remain">--:--</td>
+      <td data-k="prompt" class="muted">-</td>
+      <td data-k="online"><span class="pill">-</span></td>
+      <td style="white-space:nowrap"><button class="secondary" data-k="openC" style="padding:6px 10px;font-size:12px">設定</button> <button class="secondary" data-k="openD" style="padding:6px 10px;font-size:12px">表示</button></td>`;
+    const saved = JSON.parse(localStorage.getItem('rt-multi') || '[]')[i];
+    if (saved?.id) tr.querySelector('[data-k=id]').value = saved.id;
+    if (saved?.name) tr.querySelector('[data-k=name]').value = saved.name;
+    tr.querySelector('[data-k=openC]').onclick = () => { const v = tr.querySelector('[data-k=id]').value; if (v) open('console.html?id=' + v); };
+    tr.querySelector('[data-k=openD]').onclick = () => { const v = tr.querySelector('[data-k=id]').value; if (v) open('display.html?id=' + v); };
+    tb.appendChild(tr);
+  }
+}
+$('apply').onclick = () => { n = Math.max(1, Math.min(20, Number($('count').value) || 3)); draw(); };
+async function poll() {
+  const list = [...$('rows').rows].map((tr) => ({ id: tr.querySelector('[data-k=id]').value.replace(/\D/g, ''), tr }));
+  localStorage.setItem('rt-multi', JSON.stringify(list.map((x) => ({ id: x.id, name: x.tr.querySelector('[data-k=name]').value }))));
+  await Promise.all(list.map(async ({ id, tr }) => {
+    if (!id) return;
+    try {
+      const r = await fetch('/api/room?act=get&id=' + id, { cache: 'no-store' });
+      const j = await r.json();
+      const st = j.state;
+      if (!st?.events?.length) { tr.querySelector('[data-k=remain]').textContent = st?.stopped ? '停止' : '待機'; }
+      else {
+        const { diff, current } = resolveCurrent(st.events, Date.now());
+        tr.querySelector('[data-k=remain]').textContent = (diff < 0 ? '+' : '') + fmtHMS(diff).slice(3) + ' ' + (current?.title || '');
+      }
+      tr.querySelector('[data-k=prompt]').textContent = st?.extraMessage ? '💬 ' + st.extraMessage.slice(0, 30) : '-';
+      const ls = st?.stage?.lastSeen ? Date.now() / 1000 - st.stage.lastSeen : 999;
+      const pill = tr.querySelector('[data-k=online] .pill');
+      pill.className = 'pill ' + (ls < 12 ? 'on' : '');
+      pill.textContent = ls < 12 ? 'online' : 'offline';
+    } catch { tr.querySelector('[data-k=remain]').textContent = 'ERR'; }
+  }));
+}
+draw(); setInterval(poll, 2000); poll();
+</script>
+</body>
+</html>

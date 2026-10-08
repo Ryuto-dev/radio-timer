@@ -1,0 +1,15 @@
+{
+  "name": "radio-timer",
+  "version": "8.0.0",
+  "private": true,
+  "description": "ラジオ現場用タイマー: 送信側(console) / 表示側(display) 分離型。Vercel Serverless + polling (TIME-PON方式)",
+  "type": "module",
+  "scripts": {
+    "dev": "npx vercel dev",
+    "start": "npx serve . -l 3000",
+    "test": "node --test tests/*.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
