@@ -31,6 +31,36 @@ textarea#bulk { min-height: 130px; font-size: 15px; line-height: 1.7; font-famil
 .preset-row { display: flex; gap: 6px; flex-wrap: wrap; }
 .preset-row button { flex: none; padding: 8px 12px; font-size: 13px; }
 
+/* 行エディタ */
+.rowlist { display: grid; gap: 8px; }
+.rrow {
+  border: 2px solid var(--line); border-radius: 14px;
+  padding: 10px; background: #fff;
+}
+.rrow-head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.rnum {
+  min-width: 26px; height: 26px; border-radius: 50%;
+  background: linear-gradient(135deg, #ff4d8d, #7c3aed);
+  color: #fff; font-weight: 900; font-size: 13px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.rrow .seg { flex: 0 1 auto; }
+.rrow .seg button { box-shadow: none; }
+.rrow-head .mini { padding: 6px 10px; font-size: 13px; box-shadow: none; flex: none; }
+.rrow-grid { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.rrow-grid input { width: auto; flex: 1; min-width: 0; }
+.rrow-grid input.num { flex: 0 0 84px; text-align: right; }
+.rrow .unit { font-size: 13px; font-weight: 800; color: var(--muted); }
+.rrow input[type="time"] { flex: 1; min-width: 140px; }
+.rrow .title-in { margin-top: 8px; }
+.rchip { margin-top: 6px; font-size: 13px; font-weight: 800; color: var(--accent-2); }
+.rchip.warn { color: var(--warn1); }
+.rerr { margin-top: 4px; font-size: 12px; font-weight: 800; color: var(--over); }
+.rerr:empty, .rchip:empty { display: none; }
+.importbox { margin-top: 10px; border: 2px dashed var(--line); border-radius: 14px; padding: 10px; }
+.importbox summary { cursor: pointer; font-weight: 800; font-size: 13px; }
+.importbox textarea { margin-top: 8px; min-height: 90px; font-size: 14px; font-family: var(--mono); }
+
 .qrbox { display: flex; gap: 12px; align-items: center; }
 .qrbox img { width: 120px; height: 120px; border-radius: 10px; background: #fff; border: 1px solid var(--line); }
 .url-line { display: flex; gap: 6px; margin-top: 8px; }

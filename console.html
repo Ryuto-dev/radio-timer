@@ -89,21 +89,24 @@
     <div style="display:grid;gap:12px">
       <section class="card">
         <h2>🎵 進行表 <span class="sub">Ctrl+Enterで送信</span></h2>
-        <p class="hint">絶対 <code>10:40:00 番組開始</code> ／ 相対 <code>5分30秒 コーナー開始</code> <code>10秒 スタート</code>。絶対・相対は混在可。右端に確定時刻をプレビューします。</p>
+        <p class="hint">1行＝1つのキュー。「かかる時間」か「開始時刻」とタイトルを入れると、下に確定時刻が出ます。</p>
         <div class="preset-row" style="margin-bottom:8px">
-          <button class="secondary" data-preset="5分 オープニング&#10;10分 ゲストトーク&#10;2分 CM&#10;3分 エンディング">プリセット: 20分番組</button>
-          <button class="secondary" data-preset="10:00:00 放送開始&#10;5分 ニュース&#10;10分 特集&#10;5分 天気・交通&#10;1分 終了">プリセット: 定時枠</button>
-          <button class="secondary" data-preset="30秒 スタンバイ&#10;10秒 カウントダウン&#10;1分 本番">プリセット: 収録</button>
+          <button class="secondary" data-preset="program20">プリセット: 20分番組</button>
+          <button class="secondary" data-preset="regular">プリセット: 定時枠</button>
+          <button class="secondary" data-preset="recording">プリセット: 収録</button>
         </div>
-        <textarea id="bulk" spellcheck="false"></textarea>
-        <div id="errBox" style="margin:6px 0"></div>
-        <div class="muted" id="bulkMeta" style="font-size:12px;margin-bottom:8px"></div>
-        <table class="ed"><thead><tr><th>形式</th><th>時刻/差分</th><th>タイトル</th><th>確定</th><th></th></tr></thead>
-        <tbody id="edBody"></tbody></table>
+        <div id="rowList" class="rowlist"></div>
         <div class="btnrow" style="margin-top:8px">
           <button id="addRow" class="secondary">＋ 行追加</button>
           <button id="clearRows" class="secondary">クリア</button>
         </div>
+        <div class="muted" id="rowSummary" style="font-size:12px;margin-top:8px"></div>
+        <details class="importbox">
+          <summary>テキストから一括取込（貼り付け用・全角や時間表記もOK）</summary>
+          <textarea id="bulk" spellcheck="false" placeholder="10:40:00 番組開始&#10;5分30秒 コーナー&#10;1時間 特集"></textarea>
+          <div class="btnrow" style="margin-top:6px"><button id="importBtn" class="secondary">この内容で行を作る</button></div>
+          <div id="importMsg" class="muted" style="font-size:12px"></div>
+        </details>
       </section>
 
       <section class="card">

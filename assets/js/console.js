@@ -1,5 +1,6 @@
 import { TimerSync, createRoom, loadKey, displayUrl, consoleUrl } from './store.js';
-import { parseRundown, rundownToText } from './parse.js';
+import { parseRundown } from './parse.js';
+import { makeRow, computeRows, rowsSummary, rowsToEvents, eventsToRows, msToClock, fmtOffset, PRESETS } from './rows.js';
 import { fmtHMS, fmtClock, resolveCurrent, statusFor } from './format.js';
 
 const q = new URLSearchParams(location.search);
@@ -72,117 +73,152 @@ function boot(id, key) {
   });
   sync.start();
 
-  // ---------- rundown editor ----------
-  let rows = [{ mode: 'relative', time: '5分', title: '番組開始' }];
-  const tbody = $('edBody');
+  // ---------- 進行表エディタ (行モデルが唯一の真実。テキストとの二重管理なし) ----------
+  let rows = [makeRow({ mode: 'relative', min: 5, sec: 0, title: '番組開始' })];
+  let userEdited = false;
+  const touch = () => { userEdited = true; };
+  const listEl = $('rowList');
+  const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
-  function drawRows() {
-    tbody.innerHTML = '';
-    rows.forEach((r, i) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td><select data-k="mode">
-          <option value="relative">相対</option>
-          <option value="absolute">絶対</option>
-        </select></td>
-        <td><input data-k="time" class="t-time" placeholder="${r.mode === 'absolute' ? '10:40:00' : '5分30秒'}"></td>
-        <td><input data-k="title" placeholder="タイトル"></td>
-        <td class="t-prev mono"></td>
-        <td style="white-space:nowrap">
-          <button class="ibtn secondary" data-a="up">↑</button>
-          <button class="ibtn secondary" data-a="down">↓</button>
-          <button class="ibtn secondary" data-a="del">✕</button>
-        </td>`;
-      tr.querySelector('[data-k=mode]').value = r.mode;
-      tr.querySelector('[data-k=time]').value = r.time;
-      tr.querySelector('[data-k=title]').value = r.title;
-      tr.querySelector('[data-k=mode]').onchange = (e) => { r.mode = e.target.value; drawRows(); preview(); };
-      tr.querySelector('[data-k=time]').oninput = (e) => { r.time = e.target.value; preview(); };
-      tr.querySelector('[data-k=title]').oninput = (e) => { r.title = e.target.value; preview(); };
-      tr.querySelector('[data-a=up]').onclick = () => { if (i > 0) { [rows[i - 1], rows[i]] = [rows[i], rows[i - 1]]; drawRows(); preview(); } };
-      tr.querySelector('[data-a=down]').onclick = () => { if (i < rows.length - 1) { [rows[i + 1], rows[i]] = [rows[i], rows[i + 1]]; drawRows(); preview(); } };
-      tr.querySelector('[data-a=del]').onclick = () => { rows.splice(i, 1); drawRows(); preview(); };
-      tbody.appendChild(tr);
+  function rowCard(row, i) {
+    const div = document.createElement('div');
+    div.className = 'rrow';
+    div.innerHTML = `
+      <div class="rrow-head">
+        <span class="rnum">${i + 1}</span>
+        <div class="seg">
+          <button data-m="relative" aria-pressed="${row.mode === 'relative'}">時間</button>
+          <button data-m="absolute" aria-pressed="${row.mode === 'absolute'}">時刻</button>
+        </div>
+        <span style="flex:1"></span>
+        <button class="secondary mini" data-a="up" title="上へ">↑</button>
+        <button class="secondary mini" data-a="down" title="下へ">↓</button>
+        <button class="secondary mini" data-a="del" title="削除">✕</button>
+      </div>
+      <div class="rrow-grid" data-rel ${row.mode !== 'relative' ? 'style="display:none"' : ''}>
+        <input class="num" data-k="min" type="number" min="0" max="999" inputmode="numeric" value="${row.min}"><span class="unit">分</span>
+        <input class="num" data-k="sec" type="number" min="0" max="59" inputmode="numeric" value="${row.sec}"><span class="unit">秒</span>
+      </div>
+      <div class="rrow-grid" data-abs ${row.mode !== 'absolute' ? 'style="display:none"' : ''}>
+        <input data-k="clock" type="time" step="1" value="${esc(row.clock || '')}">
+      </div>
+      <input class="title-in" data-k="title" placeholder="タイトル（例: ゲスト登場）" value="${esc(row.title)}" maxlength="100">
+      <div class="rchip mono" data-chip></div>
+      <div class="rerr" data-err></div>`;
+
+    div.querySelectorAll('[data-m]').forEach((b) => {
+      b.onclick = () => {
+        row.mode = b.dataset.m;
+        touch();
+        div.querySelectorAll('[data-m]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+        div.querySelector('[data-rel]').style.display = row.mode === 'relative' ? '' : 'none';
+        div.querySelector('[data-abs]').style.display = row.mode === 'absolute' ? '' : 'none';
+        updateComputed();
+      };
     });
+    const num = (k) => div.querySelector(`[data-k=${k}]`);
+    num('min').oninput = (e) => { row.min = e.target.value; touch(); updateComputed(); };
+    num('sec').oninput = (e) => { row.sec = e.target.value; touch(); updateComputed(); };
+    num('clock').oninput = (e) => { row.clock = e.target.value; touch(); updateComputed(); };
+    num('title').oninput = (e) => { row.title = e.target.value; touch(); updateComputed(); };
+    div.querySelector('[data-a=up]').onclick = () => { if (i > 0) { [rows[i - 1], rows[i]] = [rows[i], rows[i - 1]]; touch(); renderRows(); } };
+    div.querySelector('[data-a=down]').onclick = () => { if (i < rows.length - 1) { [rows[i + 1], rows[i]] = [rows[i], rows[i + 1]]; touch(); renderRows(); } };
+    div.querySelector('[data-a=del]').onclick = () => {
+      touch();
+      if (rows.length <= 1) rows = [makeRow({ min: 0, sec: 0, title: '' })];
+      else rows.splice(i, 1);
+      renderRows();
+    };
+    return div;
   }
 
-  function rowsToBulk() {
-    return rows.map((r) => `${r.time} ${r.title}`.trim()).join('\n');
-  }
-  function bulkToRows(text) {
-    const out = [];
-    for (const line of String(text).split('\n')) {
-      const t = line.trim();
-      if (!t) continue;
-      let m = t.match(/^(\d{1,2}:\d{2}(?::\d{2})?)\s+[　\s]*(.*)$/);
-      if (m) { out.push({ mode: 'absolute', time: m[1], title: m[2] || '' }); continue; }
-      m = t.match(/^((?:\d+\s*分)?\s*(?:\d+\s*秒)?)\s+[　\s]*(.*)$/);
-      if (m && m[1].trim()) { out.push({ mode: 'relative', time: m[1].trim(), title: m[2] || '' }); continue; }
-      out.push({ mode: 'relative', time: '', title: t });
-    }
-    return out.length ? out : [{ mode: 'relative', time: '', title: '' }];
+  function renderRows(focusLast) {
+    listEl.innerHTML = '';
+    rows.forEach((row, i) => listEl.appendChild(rowCard(row, i)));
+    updateComputed();
+    if (focusLast) listEl.lastChild?.querySelector('[data-k=title]')?.focus();
   }
 
-  function preview() {
-    const bulk = $('bulk').value;
-    const { events, errors } = parseRundown(bulk, new Date());
-    $('errBox').innerHTML = errors.map((e) => `<div class="err">行${e.line}: ${e.reason}</div>`).join('');
-    $('countMeta').textContent = $('bulkMeta').textContent = events.length ? `${events.length}件 / 開始 ${clockOf(events[0].eventTime)} → 終了 ${clockOf(events[events.length - 1].eventTime)}` : '0件';
-    // 各行の確定時刻プレビュー
-    [...tbody.rows].forEach((tr, i) => {
-      const ev = events[i];
-      tr.querySelector('.t-prev').textContent = ev ? clockOf(ev.eventTime) : '—';
+  function updateComputed() {
+    const now = Date.now();
+    const computed = computeRows(rows, now);
+    computed.forEach((c, i) => {
+      const card = listEl.children[i];
+      if (!card) return;
+      const chip = card.querySelector('[data-chip]');
+      const err = card.querySelector('[data-err]');
+      if (c.error) {
+        chip.textContent = '';
+        err.textContent = `行${i + 1}: ${c.error}`;
+      } else {
+        err.textContent = '';
+        const t = msToClock(c.eventTime);
+        chip.textContent = c.row.mode === 'relative'
+          ? `→ ${t} 開始（＋${fmtOffset(c.offsetMs)}）`
+          : `→ ${t} 開始`;
+        chip.classList.toggle('warn', !!c.past);
+        if (c.past) chip.textContent += ' ※過去の時刻';
+      }
     });
-    // サーバープレビュー（残り時間）
-    if (events.length) {
-      const { current, index, diff } = resolveCurrent(events, Date.now());
+    const sum = rowsSummary(computed);
+    const sumText = sum.valid
+      ? `${sum.count}件（有効${sum.valid}件）/ 開始 ${msToClock(sum.startMs)} → 終了 ${msToClock(sum.endMs)}`
+      : (rows.length ? '上の赤字を確認してください' : '行がありません。「行追加」で追加できます');
+    $('rowSummary').textContent = sumText;
+    $('countMeta').textContent = sumText;
+    // プレビュー (送信前確認)
+    const valid = computed.filter((c) => c.eventTime != null);
+    if (valid.length) {
+      const evs = valid.map((c) => ({ title: String(c.row.title).trim(), eventTime: c.eventTime }));
+      const { current, index, diff } = resolveCurrent(evs, now);
       const s = statusFor(diff, Number($('warn1').value) || 60, Number($('warn2').value) || 30);
       $('pvTitle').textContent = current.title;
       $('pvRemain').textContent = fmtHMS(diff);
       $('pvRemain').style.color = s === 'warn1' ? 'var(--warn1)' : s === 'warn2' || diff < 0 ? 'var(--over)' : 'var(--fg)';
-      $('pvNext').textContent = events[index + 1] ? `NEXT ▶ ${events[index + 1].title}` : '最終イベント';
+      $('pvNext').textContent = evs[index + 1] ? `NEXT ▶ ${evs[index + 1].title}` : '最終イベント';
     } else {
       $('pvTitle').textContent = '—'; $('pvRemain').textContent = '--:--:--'; $('pvNext').textContent = '';
     }
-    return { events, errors };
   }
-  const clockOf = (ms) => {
-    const d = new Date(ms);
-    const p = (n) => String(n).padStart(2, '0');
-    return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-  };
 
-  $('bulk').addEventListener('input', () => { rows = bulkToRows($('bulk').value); drawRows(); preview(); });
-  $('addRow').onclick = () => { rows.push({ mode: 'relative', time: '1分', title: '' }); $('bulk').value = rowsToBulk(); drawRows(); preview(); };
-  $('clearRows').onclick = () => { rows = [{ mode: 'relative', time: '', title: '' }]; $('bulk').value = ''; drawRows(); preview(); };
+  $('addRow').onclick = () => { rows.push(makeRow({ min: 0, sec: 0, title: '' })); touch(); renderRows(true); };
+  $('clearRows').onclick = () => { rows = [makeRow({ min: 0, sec: 0, title: '' })]; touch(); renderRows(); };
   document.querySelectorAll('[data-preset]').forEach((b) => {
     b.onclick = () => {
-      const v = b.dataset.preset;
-      rows = bulkToRows(v);
-      $('bulk').value = v;
-      drawRows(); preview();
+      const f = PRESETS[b.dataset.preset];
+      if (f) { rows = f(); touch(); renderRows(); }
     };
   });
+  $('importBtn').onclick = () => {
+    const { events, errors } = parseRundown($('bulk').value, new Date());
+    if (!events.length) { $('importMsg').textContent = '取り込める行がありませんでした'; return; }
+    rows = eventsToRows(events);
+    touch();
+    renderRows();
+    $('importMsg').textContent = `${events.length}件取り込み${errors.length ? `（${errors.length}行スキップ）` : ''}`;
+  };
 
-  // 初期値: サーバーに番組表があれば復元
+  // 初期値: サーバーに番組表があれば復元 (ユーザーが触る前だけ)
   const unsub = sync.onUpdate((st) => {
-    if (st?.events?.length && !$('bulk').value) {
-      $('bulk').value = rundownToText(st.events);
-      rows = bulkToRows($('bulk').value);
-      drawRows(); preview();
+    if (st?.events?.length && !userEdited) {
+      rows = eventsToRows(st.events);
+      renderRows();
       unsub();
     }
   });
 
   // ---------- actions ----------
   async function doPublish() {
-    const { events, errors } = preview();
-    if (!events.length) { flash('イベントがありません', true); return; }
-    if (errors.length && !confirm(`${errors.length}行にエラーがあります。このまま送信しますか？`)) return;
+    const now = Date.now();
+    const computed = computeRows(rows, now);
+    if (!computed.length) { flash('行がありません', true); return; }
+    const bad = computed.findIndex((c) => c.error);
+    if (bad !== -1) { flash(`行${bad + 1}: ${computed[bad].error}`, true); return; }
+    const events = rowsToEvents(rows, now);
     try {
       await sync.publish({
-        events: events.map((e) => ({ title: e.title, eventTime: e.eventTime, order: e.order, mode: e.mode })),
-        configTime: Date.now(),
+        events,
+        configTime: now,
         extraMessage: $('msgInput').value,
         warn1Sec: Number($('warn1').value) || 60,
         warn2Sec: Number($('warn2').value) || 30,
@@ -192,9 +228,9 @@ function boot(id, key) {
     } catch (e) {
       // API不通時はローカル共有で継続 (同一PCデモ)
       try {
-        const st = { state: 'running', stopped: false, events, configTime: Date.now(), extraMessage: $('msgInput').value, warn1Sec: 60, warn2Sec: 30, stage: {} };
+        const st = { state: 'running', stopped: false, events, configTime: now, extraMessage: $('msgInput').value, warn1Sec: 60, warn2Sec: 30, stage: {} };
         localStorage.setItem('rt-local-' + id, JSON.stringify(st));
-        sync.state = st; preview();
+        sync.state = st; updateComputed();
       } catch {}
       flash('送信失敗: ' + e.message + '（ローカル共有に切替）', true);
     }
@@ -243,7 +279,6 @@ function boot(id, key) {
   }
 
   // 初期描画
-  $('bulk').value = rowsToBulk();
-  drawRows(); preview();
-  setInterval(preview, 1000);
+  renderRows();
+  setInterval(updateComputed, 1000);
 }
