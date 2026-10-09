@@ -70,6 +70,7 @@ function boot(id, key) {
       $('promptTgl').checked = !!st.promptOnly;
     }
     renderServerMeta(st);
+    paintMirror();
   });
   sync.start();
 
@@ -267,6 +268,41 @@ function boot(id, key) {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); doPublish(); }
   });
 
+  // 表示ミラー: サーバー状態から表示側と同一の秒数・次キューを描く
+  function paintMirror() {
+    const st = sync.state;
+    const pill = $('mState');
+    const setPill = (t, cls) => { pill.textContent = t; pill.className = 'pill ' + (cls || ''); };
+    if (!st) {
+      setPill('未取得', 'bad');
+      $('mTitle').textContent = '—';
+      $('mTime').textContent = '--:--:--';
+      $('mNext').textContent = '';
+      $('mCue').textContent = '';
+      $('mMeta').textContent = sync.connected ? 'サーバーと同期中' : '未接続';
+      return;
+    }
+    if (!st.events?.length || st.stopped || st.state === 'stopped') {
+      const stopped = st.stopped || st.state === 'stopped';
+      setPill(stopped ? '停止中' : '待機', '');
+      $('mTitle').textContent = stopped ? 'タイマー停止中' : '—';
+      $('mTime').textContent = '--:--:--';
+      $('mNext').textContent = '';
+      $('mCue').textContent = st.extraMessage ? '📩 CUE: ' + st.extraMessage : '';
+      $('mMeta').textContent = sync.connected ? 'サーバーと同期中' : '未接続';
+      return;
+    }
+    const now = Date.now();
+    const { current, index, diff, finished } = resolveCurrent(st.events, now);
+    setPill(finished ? '終了・超過中' : '進行中', finished ? 'bad' : 'on');
+    $('mTitle').textContent = finished ? '— 放送終了 —' : current.title;
+    $('mTime').textContent = finished ? '+' + fmtHMS(-diff).slice(3) : fmtHMS(diff);
+    const nx = !finished && st.events[index + 1] ? st.events[index + 1] : null;
+    $('mNext').textContent = finished ? '' : nx ? `NEXT CUE ▶ ${nx.title}（あと ${fmtHMS(nx.eventTime - now)}）` : '最終キュー（この後 番組終了）';
+    $('mCue').textContent = st.extraMessage ? '📩 CUE: ' + st.extraMessage : '';
+    $('mMeta').textContent = sync.connected ? 'サーバーと同期中' : '未接続';
+  }
+
   function renderServerMeta(st) {
     if (!st) return;
     $('svState').textContent = st.stopped ? '停止中' : st.state === 'running' ? '進行中' : '待機';
@@ -280,5 +316,6 @@ function boot(id, key) {
 
   // 初期描画
   renderRows();
-  setInterval(updateComputed, 1000);
+  paintMirror();
+  setInterval(() => { updateComputed(); paintMirror(); }, 1000);
 }

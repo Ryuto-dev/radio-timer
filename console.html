@@ -55,11 +55,23 @@
       </section>
 
       <section class="card">
-        <h2>👀 プレビュー <span class="sub">送信前確認</span></h2>
+        <h2>👀 プレビュー <span class="sub">送信前確認（編集中の内容）</span></h2>
         <div class="muted" style="font-size:12px">状態: <span id="svState">-</span> / <span id="countMeta">-</span></div>
         <div id="pvTitle" style="font-weight:900;font-size:20px;margin:4px 0">—</div>
         <div id="pvRemain" class="big-remain">--:--:--</div>
         <div id="pvNext" class="muted"></div>
+      </section>
+
+      <section class="card">
+        <h2>🖥 表示ミラー <span class="sub">表示側に今出ている内容</span></h2>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span id="mState" class="pill">-</span>
+          <span id="mMeta" class="muted" style="font-size:12px">-</span>
+        </div>
+        <div id="mTitle" style="font-weight:900;font-size:20px;margin:4px 0">—</div>
+        <div id="mTime" class="mirror-time">--:--:--</div>
+        <div id="mNext" class="mirror-next"></div>
+        <div id="mCue" class="mirror-cue muted"></div>
       </section>
 
       <section class="card">

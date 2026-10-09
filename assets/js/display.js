@@ -71,6 +71,23 @@ function boot(id) {
     $('nextTime').textContent = sub || '';
   }
 
+  let lastBars = null; // 停止時に凍結表示するための保持
+  // バーは「残量」(満タン→空)＋％表示
+  function paintRaw(pr, tr) {
+    pr = Math.max(0, Math.min(1, pr));
+    tr = Math.max(0, Math.min(1, tr));
+    lastBars = { pr, tr };
+    document.querySelectorAll('#panel .bar').forEach((b) => { b.className = 'bar'; });
+    $('secBar').style.width = (pr * 100).toFixed(1) + '%';
+    $('secPct').textContent = Math.round(pr * 100) + '%';
+    $('totBar').style.width = (tr * 100).toFixed(1) + '%';
+    $('totPct').textContent = Math.round(tr * 100) + '%';
+  }
+  // sectionProgressの経過値pを残量に変換して描画
+  function paintBars(pElapsed, totElapsed) {
+    paintRaw(1 - pElapsed, 1 - totElapsed);
+  }
+
   function render(st) {
     $('conn').className = 'pill ' + (sync.connected ? 'on' : 'bad');
     $('conn').textContent = sync.connected ? '接続中' : '未接続';
@@ -83,11 +100,9 @@ function boot(id) {
       $('panel').dataset.status = 'normal';
       $('evTitle').textContent = stopped ? 'タイマー停止中' : '待機中 — 番組表の送信待ち';
       $('count').textContent = '--:--:--';
-      $('statusLine').textContent = stopped ? 'STOPPED' : 'STANDBY';
       setNextCue(null);
-      $('secBar').style.width = '0%';
+      paintRaw(1, 1);
       $('secPct').textContent = '-%';
-      $('totBar').style.width = '0%';
       $('totPct').textContent = '-%';
       $('onair').classList.remove('live');
       renderTicker(st);
@@ -99,12 +114,9 @@ function boot(id) {
       $('panel').dataset.status = 'normal';
       $('evTitle').textContent = 'タイマー停止中';
       $('count').textContent = '--:--:--';
-      $('statusLine').textContent = 'STOPPED';
       setNextCue(null);
-      $('secBar').style.width = '0%';
-      $('secPct').textContent = '-%';
-      $('totBar').style.width = '0%';
-      $('totPct').textContent = '-%';
+      if (lastBars) paintRaw(lastBars.pr, lastBars.tr); // 停止時の値を凍結表示
+      else { paintRaw(1, 1); $('secPct').textContent = '-%'; $('totPct').textContent = '-%'; }
       $('onair').classList.remove('live');
       renderTicker(st);
       renderRundown(st, -1, now.getTime());
@@ -122,15 +134,10 @@ function boot(id) {
 
     if (finished) {
       $('count').textContent = '+' + fmtHMS(-diff).slice(3);
-      $('statusLine').textContent = 'OVER — 超過 ' + fmtHMS(-diff);
-      $('secBar').style.width = '100%';
-      $('secPct').textContent = '100%';
-      $('totBar').style.width = '100%';
-      $('totPct').textContent = '100%';
+      paintRaw(0, 0); // 残量なし
     } else {
       $('count').textContent = fmtHMS(diff);
       const s = Math.ceil(diff / 1000);
-      $('statusLine').textContent = s <= 10 ? `残り ${s} 秒` : `残り ${Math.floor(s / 60)}分${s % 60}秒`;
       // カウントダウン末期の警告音 (10〜1秒でピッ、0秒でピーン)
       if (s !== lastSec) {
         lastSec = s;
@@ -140,17 +147,14 @@ function boot(id) {
       if (s === 0) beep(1320, 0.4);
     }
 
-    // バーは「経過の溜まり具合」(0→100%)＋％表示。残量表示だと長尺区間で止まって見えるため
+    // バーは残量 (満タン→空)＋％表示
     const p = sectionProgress(st.events, st.configTime, index, t);
-    $('secBar').style.width = (p * 100).toFixed(1) + '%';
-    $('secPct').textContent = Math.round(p * 100) + '%';
-    $('secBar').parentElement.className = 'bar' + (status === 'warn1' ? ' warn' : status === 'warn2' || status === 'over' ? ' danger' : '');
     const first = st.configTime || st.events[0].eventTime;
     const last = st.events[st.events.length - 1].eventTime;
     const totSpan = last - first;
     const tot = totSpan <= 0 ? 1 : Math.max(0, Math.min(1, (t - first) / totSpan));
-    $('totBar').style.width = (tot * 100).toFixed(1) + '%';
-    $('totPct').textContent = Math.round(tot * 100) + '%';
+    paintBars(p, tot);
+    $('secBar').parentElement.className = 'bar' + (status === 'warn1' ? ' warn' : status === 'warn2' || status === 'over' ? ' danger' : '');
 
     const nx = !finished && st.events[index + 1] ? st.events[index + 1] : null;
     if (finished) setNextCue(null);

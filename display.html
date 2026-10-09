@@ -26,7 +26,6 @@
     <div class="ev-label">NOW ON CUE</div>
     <div id="evTitle" class="ev-title">待機中...</div>
     <div id="count" class="count">--:--:--</div>
-    <div id="statusLine" class="status-line">STANDBY</div>
     <div id="nextCue" class="next-cue" style="display:none">
       <span class="nc-label">NEXT CUE</span>
       <span id="nextTitle"></span>
@@ -41,24 +40,11 @@
   <div id="ticker" class="ticker" aria-live="polite"></div>
   <div id="cueMeta" class="cue-meta" aria-live="polite"></div>
 
-  <section class="columns">
-    <div class="card">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <strong>🎵 進行表</strong><span class="sp" style="flex:1"></span><span id="runMeta" class="muted" style="font-size:12px"></span>
-      </div>
-      <ol id="rundown" class="rundown"></ol>
+  <section class="card">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <strong>番組進行表</strong><span class="sp" style="flex:1"></span><span id="runMeta" class="muted" style="font-size:12px"></span>
     </div>
-    <div class="card">
-      <strong>📡 この画面について</strong>
-      <ul class="muted" style="font-size:13px;line-height:1.9;margin:8px 0 0;padding-left:18px">
-        <li>残りわずかでカウントの色が変わります（秒数は送信側で変更可）</li>
-        <li>終了後は超過時間を赤色で表示します</li>
-        <li>残り10秒からカウント音が鳴ります（🔔でON/OFF）</li>
-        <li>バーは区間と全体の進み具合です（％付き）</li>
-        <li>送信側のCUEはピンクのテロップに即時反映されます</li>
-      </ul>
-      <p class="muted" style="font-size:12px">URLに <code>?id=XXXXXX</code> を付けて配布してください。CUEが届いた時刻はテロップ下に表示されます。</p>
-    </div>
+    <ol id="rundown" class="rundown"></ol>
   </section>
   <div class="stage-foot">◉ STUDIO CUE v9.2 · CUE・進行表は自動更新</div>
 </main>

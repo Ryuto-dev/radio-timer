@@ -81,3 +81,21 @@ textarea#bulk { min-height: 130px; font-size: 15px; line-height: 1.7; font-famil
 .seg { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 .seg button { flex: 1; border-radius: 0; background: transparent; color: var(--muted); padding: 8px; font-size: 13px; }
 .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+
+/* 送信側は落ち着いたトーンに (ポップな全体テーマを上書き) */
+body { background: #eef1f6; }
+button { background: #3b4a5e; border-radius: 12px; box-shadow: none; }
+button.secondary { background: #e4e9f0; border: 1px solid #c6cfdb; color: #2b3648; }
+button.danger { background: #b91c1c; box-shadow: none; }
+button.ghost { border: 1px solid #c6cfdb; color: #2b3648; }
+.topbar { background: rgba(238, 241, 246, .94); border-bottom: 1px solid #c6cfdb; }
+.topbar .logo { background: none; color: #2b3648; -webkit-text-fill-color: #2b3648; }
+.card { border: 1px solid #d3dbe5; box-shadow: 0 1px 3px rgba(30, 40, 60, .08); border-radius: 12px; }
+input, textarea, select { border: 1px solid #c6cfdb; border-radius: 10px; }
+input:focus, textarea:focus, select:focus { outline: 2px solid rgba(59, 74, 94, .25); border-color: #3b4a5e; }
+.rnum { background: #3b4a5e; }
+.rrow .seg button[aria-pressed="true"] { background: #3b4a5e; }
+.pill { border-width: 1px; }
+.mirror-time { font-family: var(--mono); font-size: clamp(40px, 8vw, 64px); font-weight: 800; line-height: 1.05; }
+.mirror-next { font-weight: 800; margin-top: 4px; }
+.mirror-cue { margin-top: 6px; font-weight: 700; }

@@ -47,7 +47,6 @@ body.studio { background: #0e131a; color: #e8edf3; }
   font-weight: 800; line-height: 1.05;
   letter-spacing: .02em;
 }
-.status-line { margin-top: 6px; font-weight: 700; letter-spacing: .06em; font-size: 14px; color: #7d8a9d; }
 .next-cue {
   margin: 12px auto 0; max-width: 720px;
   display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
