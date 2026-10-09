@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>複数ルーム監視 | radio-timer</title>
+<title>まとめて監視 | STUDIO CUE</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Ccircle%20cx='50'%20cy='50'%20r='44'%20fill='%23ff4d8d'/%3E%3Ccircle%20cx='50'%20cy='50'%20r='17'%20fill='white'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/css/tokens.css">
 <style>
 table.m{width:100%;border-collapse:separate;border-spacing:0;font-size:14px}
@@ -14,7 +15,7 @@ table.m th{color:var(--muted);font-size:12px}
 </head>
 <body>
 <div class="topbar"><div class="topbar-inner">
-  <span class="brand">radio-timer <small>multi</small></span>
+  <span class="logo">◉ STUDIO CUE <small>まとめ監視</small></span>
   <span style="flex:1"></span><a href="index.html" style="font-size:13px">ホーム</a>
 </div></div>
 <div class="wrap">
@@ -22,10 +23,11 @@ table.m th{color:var(--muted);font-size:12px}
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <label>監視数 <input id="count" type="number" min="1" max="20" value="3" style="width:70px"></label>
       <button id="apply" class="secondary">反映</button>
-      <span class="muted" style="font-size:12px">IDを入力すると2秒毎に各ルームの残り・カンペ・演台状態を監視します（管理キー不要）。</span>
+      <span class="muted" style="font-size:12px">IDを入力すると各ルームの残り・CUE・表示側の状態をほぼリアルタイムで監視します（管理キー不要）。</span>
     </div>
   </div>
-  <div class="card"><table class="m"><thead><tr><th>#</th><th>ルームID / 名前</th><th>残り</th><th>カンペ</th><th>演台</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
+  <div class="card"><table class="m"><thead><tr><th>#</th><th>ルームID / 名前</th><th>残り</th><th>CUE</th><th>表示側</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
+  <div class="footer">◉ STUDIO CUE</div>
 </div>
 <script type="module">
 import { fmtHMS, resolveCurrent } from './assets/js/format.js';

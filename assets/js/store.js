@@ -1,17 +1,16 @@
-// TimerSync — 新API(/api/room) + 旧Firebase(RTDB) + BroadcastChannel の3層同期
-// 1. 新APIをポーリング (2秒)。成功すればそれが正。
+// TimerSync — watch(長時間ポーリング)駆動の準リアルタイム同期
+// 1. 新APIのwatchを使い、変更があれば1秒以内に反映。旧サーバーではgetポーリングにフォールバック。
 // 2. 同一ブラウザではBroadcastChannelで即時反映 (待ち時間ゼロ)。
-// 3. 新APIが未配置(旧運用・file直開き)の場合は localStorage + Firebase-compat にフォールバック。
+// 3. API不通時は localStorage にフォールバック (同一PCデモ運用)。
 export class TimerSync {
-  constructor(roomId, { adminKey = '', pollMs = 2000, channel = null } = {}) {
+  constructor(roomId, { adminKey = '', channel = null } = {}) {
     this.roomId = roomId;
     this.adminKey = adminKey;
-    this.pollMs = pollMs;
     this.state = null;
     this.exists = false;
     this.connected = false; // 新API到達可否
     this.listeners = new Set();
-    this.timer = null;
+    this._watching = false;
     this.bc = null;
     try {
       this.bc = channel || (roomId ? new BroadcastChannel('radio-timer-' + roomId) : null);
@@ -70,22 +69,50 @@ export class TimerSync {
   }
 
   start() {
+    // 長時間ポーリング駆動: 変更があるとサーバーが即時返答するため、CUE等の反映が通常1秒以内になる。
+    // watch未対応サーバーでもfetchOnceフォールバックで動作する。
     this.stopPoll();
+    this._watching = true;
     const loop = async () => {
-      try { await this.fetchOnce(); }
-      catch {
-        this.connected = false;
-        // フォールバック: localStorage (同一PCデモ運用)
+      // 初回は即時取得 (rev不明のためwatchが即時返答する)
+      try { await this.fetchOnce(); } catch { /* watchループへ */ }
+      while (this._watching) {
         try {
-          const raw = localStorage.getItem('rt-local-' + this.roomId);
-          if (raw) { this.state = JSON.parse(raw); this.emit(); }
-        } catch {}
+          const rev = this.state?.rev ?? -1;
+          const ctrl = new AbortController();
+          const killer = setTimeout(() => ctrl.abort(), 15000);
+          let r;
+          try {
+            r = await fetch(`/api/room?act=watch&id=${encodeURIComponent(this.roomId)}&rev=${rev}`, { cache: 'no-store', signal: ctrl.signal });
+          } finally { clearTimeout(killer); }
+          if (!r.ok) throw new Error('api ' + r.status);
+          const j = await r.json();
+          if (!j.ok) throw new Error(j.error || 'api error');
+          this.connected = true;
+          this.exists = !!j.exists;
+          if (!this.state || j.rev !== this.state.rev) {
+            this.state = j.state;
+            this.emit();
+          } else {
+            this.state = j.state; // タイムアウト応答: 描画は据え置き
+          }
+        } catch {
+          this.connected = false;
+          // フォールバック: 旧式getポーリング + localStorage (同一PCデモ運用)
+          try { await this.fetchOnce(); }
+          catch {
+            try {
+              const raw = localStorage.getItem('rt-local-' + this.roomId);
+              if (raw) { this.state = JSON.parse(raw); this.emit(); }
+            } catch {}
+          }
+          await new Promise((r) => setTimeout(r, 2000));
+        }
       }
     };
     loop();
-    this.timer = setInterval(loop, this.pollMs);
   }
-  stopPoll() { if (this.timer) clearInterval(this.timer); this.timer = null; }
+  stopPoll() { this._watching = false; }
 
   // console送信用: localStorageにも保存 (API不通時のデモ継続)
   mirrorLocal(state) {

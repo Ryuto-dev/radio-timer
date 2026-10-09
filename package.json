@@ -1,8 +1,7 @@
 {
-  "name": "radio-timer",
-  "version": "8.0.0",
-  "private": true,
-  "description": "ラジオ現場用タイマー: 送信側(console) / 表示側(display) 分離型。Vercel Serverless + polling (TIME-PON方式)",
+  "name": "studio-cue",
+  "version": "9.0.0",
+  "description": "STUDIO CUE: ラジオ現場用のタイマー＆CUE出しツール。送信側/表示側分離、Vercel Serverless + 長時間ポーリングで準リアルタイム同期",
   "type": "module",
   "scripts": {
     "dev": "npx vercel dev",

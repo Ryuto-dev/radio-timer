@@ -1,6 +1,6 @@
 import { TimerSync, createRoom, loadKey, displayUrl, consoleUrl } from './store.js';
 import { parseRundown, rundownToText } from './parse.js';
-import { fmtHMS, resolveCurrent, statusFor } from './format.js';
+import { fmtHMS, fmtClock, resolveCurrent, statusFor } from './format.js';
 
 const q = new URLSearchParams(location.search);
 let roomId = (q.get('id') || '').replace(/\D/g, '');
@@ -34,6 +34,9 @@ function boot(id, key) {
   $('keyState').className = 'pill ' + (key ? 'on' : 'bad');
   const isAdmin = !!key;
   ['publishBtn', 'publishBtn2', 'stopBtn', 'resumeBtn', 'resetBtn', 'adjPlus', 'adjMinus', 'sendMsgBtn', 'clearMsgBtn'].forEach((b) => {
+    if ($(b)) $(b).disabled = !isAdmin;
+  });
+  ['msgInput', 'flashTgl', 'promptTgl'].forEach((b) => {
     if ($(b)) $(b).disabled = !isAdmin;
   });
   if (!isAdmin) $('adminWarn').style.display = '';
@@ -124,7 +127,7 @@ function boot(id, key) {
     const bulk = $('bulk').value;
     const { events, errors } = parseRundown(bulk, new Date());
     $('errBox').innerHTML = errors.map((e) => `<div class="err">行${e.line}: ${e.reason}</div>`).join('');
-    $('countMeta').textContent = events.length ? `${events.length}件 / 開始 ${clockOf(events[0].eventTime)} → 終了 ${clockOf(events[events.length - 1].eventTime)}` : '0件';
+    $('countMeta').textContent = $('bulkMeta').textContent = events.length ? `${events.length}件 / 開始 ${clockOf(events[0].eventTime)} → 終了 ${clockOf(events[events.length - 1].eventTime)}` : '0件';
     // 各行の確定時刻プレビュー
     [...tbody.rows].forEach((tr, i) => {
       const ev = events[i];
@@ -136,7 +139,7 @@ function boot(id, key) {
       const s = statusFor(diff, Number($('warn1').value) || 60, Number($('warn2').value) || 30);
       $('pvTitle').textContent = current.title;
       $('pvRemain').textContent = fmtHMS(diff);
-      $('pvRemain').style.color = s === 'warn1' ? 'var(--warn1)' : s === 'warn2' || diff < 0 ? '#f87171' : '#fff';
+      $('pvRemain').style.color = s === 'warn1' ? 'var(--warn1)' : s === 'warn2' || diff < 0 ? 'var(--over)' : 'var(--fg)';
       $('pvNext').textContent = events[index + 1] ? `NEXT ▶ ${events[index + 1].title}` : '最終イベント';
     } else {
       $('pvTitle').textContent = '—'; $('pvRemain').textContent = '--:--:--'; $('pvNext').textContent = '';
@@ -200,18 +203,27 @@ function boot(id, key) {
   $('publishBtn2').onclick = doPublish;
   $('stopBtn').onclick = async () => { try { await sync.stop(); flash('停止しました'); } catch (e) { flash(e.message, true); } };
   $('resumeBtn').onclick = async () => { try { await sync.resume(); flash('再開しました'); } catch (e) { flash(e.message, true); } };
-  $('resetBtn').onclick = async () => { if (confirm('番組表とメッセージをリセットしますか？')) try { await sync.reset(); flash('リセットしました'); } catch (e) { flash(e.message, true); } };
+  $('resetBtn').onclick = async () => { if (confirm('進行表とCUEをリセットしますか？')) try { await sync.reset(); flash('リセットしました'); } catch (e) { flash(e.message, true); } };
   $('adjPlus').onclick = () => sync.adjust(60).then(() => flash('+60秒しました')).catch((e) => flash(e.message, true));
   $('adjMinus').onclick = () => sync.adjust(-30).then(() => flash('-30秒しました')).catch((e) => flash(e.message, true));
   $('saveWarn').onclick = () => sync.saveSettings({ warn1Sec: Number($('warn1').value) || 60, warn2Sec: Number($('warn2').value) || 30 }).then(() => flash('警告時間を保存')).catch((e) => flash(e.message, true));
 
   let msgT = null;
+  const cueState = (t) => { $('msgSendState').textContent = t; };
   $('msgInput').addEventListener('input', () => {
     clearTimeout(msgT);
-    msgT = setTimeout(() => { sync.message($('msgInput').value).catch(() => {}); }, 400);
+    msgT = setTimeout(() => {
+      cueState('CUE送信中…');
+      sync.message($('msgInput').value).then(() => {
+        cueState($('msgInput').value ? `✓ CUE送信済み ${fmtClock(new Date())}（表示側に反映されます）` : 'CUEなし');
+      }).catch((e) => { cueState('CUE送信失敗: ' + e.message); });
+    }, 400);
   });
-  $('sendMsgBtn').onclick = () => sync.message($('msgInput').value).then(() => flash('メッセージ送信')).catch((e) => flash(e.message, true));
-  $('clearMsgBtn').onclick = () => { $('msgInput').value = ''; sync.message('').then(() => flash('メッセージ消去')).catch(() => {}); };
+  $('sendMsgBtn').onclick = () => {
+    cueState('CUE送信中…');
+    sync.message($('msgInput').value).then(() => { cueState(`✓ CUE送信済み ${fmtClock(new Date())}`); flash('CUE送信'); }).catch((e) => { cueState('CUE送信失敗: ' + e.message); flash(e.message, true); });
+  };
+  $('clearMsgBtn').onclick = () => { $('msgInput').value = ''; cueState('CUE送信中…'); sync.message('').then(() => { cueState('CUE消去済み'); flash('CUE消去'); }).catch((e) => { cueState('CUE送信失敗: ' + e.message); }); };
   $('flashTgl').onchange = (e) => sync.flags({ flash: e.target.checked }).catch(() => {});
   $('promptTgl').onchange = (e) => sync.flags({ promptOnly: e.target.checked }).catch(() => {});
 

@@ -1,7 +1,8 @@
 // radio-timer API — TIME-PON方式の軽量ポーリングAPIをVercel向けに再実装
 // Storage: Vercel KV (Upstash Redis REST) があればそれを使用、なければ /tmp + メモリ (ローカルdev用)
 // Endpoints (single file):
-//   GET  /api/room?act=get&id=XXXXXX
+//   GET  /api/room?act=get&id=XXXXXX          … 現在状態を即時返答
+//   GET  /api/room?act=watch&id=XXXXXX&rev=N  … revが変わるまで最大約8.5秒待機 (長時間ポーリング・準リアルタイム用)
 //   POST /api/room  { act:'create' }
 //   POST /api/room  { act:'set', id, k, cmd, ... }
 //   POST /api/room  { act:'setSettings', id, k, warn1Sec, warn2Sec }
@@ -69,7 +70,8 @@ async function loadRoom(id) {
   if (f) { mem.set(id, f); return f; }
   return null;
 }
-async function saveRoom(st) {
+async function saveRoom(st, { bump = true } = {}) {
+  if (bump) st.rev = (Number(st.rev) || 0) + 1;
   st.updatedAt = Date.now();
   mem.set(st.id, st);
   fileSet(st.id, st);
@@ -93,6 +95,7 @@ function defaultRoom(id) {
     promptOnly: false,
     stage: { lastSeen: 0, fullscreen: false, ackMs: 0 },
     adminKey: null,
+    rev: 0, // 内容更新カウンタ (watch用。hb等の生存報告では増やさない)
     updatedAt: Date.now(),
   };
 }
@@ -118,6 +121,7 @@ function fresh(id, d) {
   out.warn1Sec = Math.min(3600, Math.max(0, Number(out.warn1Sec) || 0));
   out.warn2Sec = Math.min(3600, Math.max(0, Number(out.warn2Sec) || 0));
   out.extraMessage = String(out.extraMessage || '').slice(0, 500);
+  out.rev = Math.max(0, Math.floor(Number(out.rev) || 0));
   return out;
 }
 
@@ -182,7 +186,36 @@ export default async function handler(req, res) {
     const raw = await loadRoom(id);
     const exists = !!raw;
     const st = fresh(id, raw);
-    return send(res, 200, { ok: true, state: redact(st), exists, serverNowMs: Date.now() });
+    return send(res, 200, { ok: true, state: redact(st), rev: st.rev, exists, serverNowMs: Date.now() });
+  }
+
+  if (act === 'watch') {
+    // 長時間ポーリング: クライアントのrevと変わるまで最大約8.5秒待機し、変化があれば即時返答。
+    // 2秒ポーリングと違い、CUE等の反映が通常1秒以内になる。Hobbyの10秒制限内に収める。
+    const id = String(q.id || '').replace(/\D/g, '');
+    if (!id) return send(res, 400, { ok: false, error: 'id required' });
+    if (!throttle('w8:' + ip, 60, 60)) {
+      const raw0 = await loadRoom(id);
+      const st0 = fresh(id, raw0);
+      return send(res, 200, { ok: true, state: redact(st0), rev: st0.rev, exists: !!raw0, serverNowMs: Date.now(), fallback: true });
+    }
+    const wantRaw = Number(q.rev);
+    const wantRev = Number.isFinite(wantRaw) ? Math.floor(wantRaw) : -1;
+    const deadline = Date.now() + 8500;
+    const rawFirst = await loadRoom(id);
+    const first = fresh(id, rawFirst);
+    if (first.rev !== wantRev) {
+      return send(res, 200, { ok: true, state: redact(first), rev: first.rev, exists: !!rawFirst, serverNowMs: Date.now() });
+    }
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 700));
+      const raw = await loadRoom(id);
+      const st = fresh(id, raw);
+      if (st.rev !== wantRev) {
+        return send(res, 200, { ok: true, state: redact(st), rev: st.rev, exists: !!raw, serverNowMs: Date.now() });
+      }
+    }
+    return send(res, 200, { ok: true, state: redact(first), rev: first.rev, exists: !!rawFirst, serverNowMs: Date.now() });
   }
 
   if ((act === 'set' || act === 'setSettings' || act === 'hb' || act === 'ack') && req.method === 'POST') {
@@ -204,8 +237,8 @@ export default async function handler(req, res) {
     if (act === 'hb') {
       st.stage.lastSeen = Math.floor(now / 1000);
       st.stage.fullscreen = body.fs === true || body.fs === '1' || body.fs === 'true';
-      await saveRoom(st);
-      return send(res, 200, { ok: true, state: redact(st), serverNowMs: now });
+      await saveRoom(st, { bump: false }); // 生存報告ではrevを増やさない (watchの無駄な起床を防ぐ)
+      return send(res, 200, { ok: true, state: redact(st), rev: st.rev, serverNowMs: now });
     }
     if (act === 'ack') {
       st.stage.ackMs = now;

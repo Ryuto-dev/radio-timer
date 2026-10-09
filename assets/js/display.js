@@ -39,7 +39,7 @@ function beep(freq = 880, dur = 0.12, gain = 0.08) {
 
 function boot(id) {
   const sync = new TimerSync(id, { pollMs: 2000 });
-  sync.onUpdate((st) => render(st));
+  sync.onUpdate((st) => { sync._lastOk = Date.now(); render(st); });
   sync.start();
   setInterval(() => { try { sync.hb(document.fullscreenElement != null); } catch {} }, 5000);
   setInterval(() => render(sync.state), 250); // カウントダウン滑らか化
@@ -140,6 +140,19 @@ function boot(id) {
     const el = $('ticker');
     el.textContent = st?.extraMessage || '';
     el.classList.toggle('flash', !!(st?.flash && st?.extraMessage));
+    // CUE受信インジケータ: いつ・何が届いたか／待機中かを常に明示
+    const meta = $('cueMeta');
+    if (!meta) return;
+    if (!sync.connected) {
+      meta.textContent = '未接続 — サーバーに届いていません';
+    } else if (st?.extraMessage) {
+      const at = st.messageAtMs ? fmtClock(new Date(st.messageAtMs)) : '';
+      const head = st.extraMessage.length > 40 ? st.extraMessage.slice(0, 40) + '…' : st.extraMessage;
+      meta.textContent = `📩 CUE受信 ${at}「${head}」`;
+    } else {
+      const up = sync._lastOk ? fmtClock(new Date(sync._lastOk)) : '--:--:--';
+      meta.textContent = `CUE待機中（最終更新 ${up}・ROOM ${id}）`;
+    }
   }
 
   function renderRundown(st, nowIndex, t) {

@@ -1,36 +1,36 @@
-# radio-timer v8 📻
+# STUDIO CUE v9 ◉
 
-送信側（console）と表示側（display）を分離した、ラジオ現場用タイマー。
-ver7（Firebase Realtime DB直結・2ファイル）から、TIME-PON方式の軽量ポーリングに正統進化させたもの。
+スタジオへ、キューを出そう。送信側（console）と表示側（display）を分離した、ラジオ現場用のタイマー＆CUE出しツール。
+ver7（Firebase Realtime DB直結・2ファイル）から独自サービスとして刷新したもの。
 
 ## 何が変わったか
 
-| 項目 | ver7 | v8 |
+| 項目 | ver7 | v9 |
 |---|---|---|
-| デザイン | 素の2画面 | 表示側＝放送自動運行システム風（ON AIR・超過・警告色・進行表・テロップ）、送信側＝現代WebAppカードUI |
+| デザイン | 素の2画面 | FM局ポップテーマ。表示側＝スタジオの大画面用（ON AIR・超過・警告色・進行表・CUEテロップ）、送信側＝明るいカードUI |
 | 構造 | `config.html` / `display.html` 直書き・重複ロジック | `index / console / display / rooms` + `assets/js|css` 共通化 + `api/room.js` |
 | 操作性 | textarea一発＋停止のみ | 表エディタ（追加/削除/並替/確定時刻プレビュー）・プリセット・＋60秒ずらし・再開/リセット・Ctrl+Enter・sticky送信バー |
-| 正統進化 | — | 警告色（黄/赤・秒数可変）・超過表示・カウント音・カンペ点滅/のみ表示・演台オンライン監視・QR配布・複数ルーム監視・ショートカット |
+| 即時性 | 約1秒ポーリング | **長時間ポーリング（watch）で変更を検知次第返答**。CUE等の反映は通常1秒以内 |
+| 正統進化 | — | 警告色（黄/赤・秒数可変）・超過表示・カウント音・CUE点滅/のみ表示・表示側オンライン確認・CUE受信時刻表示・QR配布・まとめ監視・ショートカット |
 | モバイル | 送信側がPC前提（横2列固定・200px入力欄） | レスポンシブ・大ボタン・stickyバー・viewport対応 |
-| DB | Firebase RTDB（APIキー直書き） | **Vercel Serverless + KV(Upstash Redis)のポーリングAPI**。未設定でもローカル動作。旧キーは削除済み |
-| 運用 | ファイル手渡し | GitHub管理・Vercelホスト前提（`vercel.json`同梱） |
+| DB | Firebase RTDB（APIキー直書き） | **Vercel Serverless + Upstash Redis**。旧キーは削除済み |
+| 運用 | ファイル手渡し | GitHub管理・Vercelホスト（東京リージョン）前提（`vercel.json`同梱） |
 
-### TIME-PONとの関係
-参考リポジトリ [pondashicom/timepon](https://github.com/pondashicom/timepon) は **PHP単一ファイル＋`data/*.json`＋ポーリング＋6桁ID＋adminKey＋QR＋複数ルーム** という構成。
-VercelはPHP・永続ファイルシステムを持たないため、そのままは動かない。そこで思想だけ継承し、実装をVercel流に置き換えた：
+### 設計の由来
+遠隔タイマーの先行例（ビューとコントロールの分離・6桁ID・管理キー・QR配布・複数ルーム監視）を参考にしつつ、UI・名称・配色は独自の「STUDIO CUE」として作り直した別サービス。バックエンドはVercel Serverless + Upstash Redisの自前API。
 
-- `index.php` → `api/room.js`（Node Serverless、JSON per room、ポーリング、adminKey、TTL 7日、レート制限）
-- `data/*.json` → **Vercel KV（Upstash Redis）**。未設定時は `/tmp`＋メモリ（ローカルdev用）
-- 6桁ID・管理URL（`#k=`）・QR・複数ルーム・ack/hb・点滅/カンペのみ等の現場機能はそのまま移植＋拡張
+- `api/room.js`（Node Serverless、JSON per room、長時間ポーリング、adminKey、TTL 7日、レート制限）
+- 保存先は **Upstash Redis**。未設定時は `/tmp`＋メモリ（ローカルdev用）
+- 6桁ID・管理URL（`#k=`）・QR・まとめ監視・生存報告（hb）・点滅/CUEのみ表示等の現場機能を搭載
 
 Firebase維持案は不採用（キー直書きの廃止・ベンダーロック回避のため）。旧ver7は `legacy/config-v7.html` に保存。
 
 ## 使い方
 
 - `index.html` … 入口（ルーム作成・入場）
-- `console.html` … 送信・設定側（管理キー必要。`?id=XXXXXX#k=...`）
+- `console.html` … 送信側（管理キー必要。`?id=XXXXXX#k=...`）
 - `display.html?id=XXXXXX` … 表示側（スタジオの大画面・配布用）
-- `rooms.html` … 複数ルーム監視（管理キー不要）
+- `rooms.html` … まとめ監視（管理キー不要）
 
 番組表の書き方（絶対・相対混在可）：
 ```
@@ -73,11 +73,12 @@ gh repo create radio-timer --public --source=. --push
 ## API仕様（`api/room.js`）
 
 - `POST {act:'create'}` → `{id, adminKey}`
-- `GET ?act=get&id=` → `{state, exists, serverNowMs}`
+- `GET ?act=get&id=` → `{state, rev, exists, serverNowMs}`（即時返答）
+- `GET ?act=watch&id=&rev=N` → revが変わるまで最大約8.5秒待機して返答（長時間ポーリング）
 - `POST {act:'set', id, k, cmd:'publish'|'stop'|'resume'|'reset'|'message'|'adjust'|'flags', ...}`
 - `POST {act:'setSettings', id, k, warn1Sec, warn2Sec}`
-- `POST {act:'hb', id, fs}`（管理キー不要・演台の生存報告）
-- state: `{id, state, stopped, events[{title,eventTime,order,mode}], configTime, extraMessage, warn1Sec, warn2Sec, flash, promptOnly, stage{lastSeen,fullscreen,ackMs}}`
+- `POST {act:'hb', id, fs}`（管理キー不要・表示側の生存報告。revは増やさない）
+- state: `{id, state, stopped, events[{title,eventTime,order,mode}], configTime, extraMessage, messageAtMs, warn1Sec, warn2Sec, flash, promptOnly, rev, stage{lastSeen,fullscreen,ackMs}}`
 
 ## ファイル構成
 
@@ -86,5 +87,5 @@ index.html  console.html  display.html  rooms.html  config.html(→consoleへ転
 assets/js/{store,parse,format,console,display}.js
 assets/css/{tokens,console,display}.css
 api/room.js  vercel.json  package.json
-legacy/config-v7.html  tests/basic.test.js
+legacy/config-v7.html  tests/basic.test.js  tests/watch.test.js
 ```
