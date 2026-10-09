@@ -73,8 +73,10 @@ function boot(id) {
       $('count').textContent = '--:--:--';
       $('statusLine').textContent = stopped ? 'STOPPED' : 'STANDBY';
       $('nextLine').textContent = '';
-      $('secBar').style.width = '100%';
-      $('totBar').style.width = '100%';
+      $('secBar').style.width = '0%';
+      $('secPct').textContent = '-%';
+      $('totBar').style.width = '0%';
+      $('totPct').textContent = '-%';
       $('onair').classList.remove('live');
       renderTicker(st);
       renderRundown(st, -1, now.getTime());
@@ -86,6 +88,10 @@ function boot(id) {
       $('evTitle').textContent = 'タイマー停止中';
       $('count').textContent = '--:--:--';
       $('statusLine').textContent = 'STOPPED';
+      $('secBar').style.width = '0%';
+      $('secPct').textContent = '-%';
+      $('totBar').style.width = '0%';
+      $('totPct').textContent = '-%';
       $('onair').classList.remove('live');
       renderTicker(st);
       renderRundown(st, -1, now.getTime());
@@ -104,6 +110,10 @@ function boot(id) {
     if (finished) {
       $('count').textContent = '+' + fmtHMS(-diff).slice(3);
       $('statusLine').textContent = 'OVER — 超過 ' + fmtHMS(-diff);
+      $('secBar').style.width = '100%';
+      $('secPct').textContent = '100%';
+      $('totBar').style.width = '100%';
+      $('totPct').textContent = '100%';
     } else {
       $('count').textContent = fmtHMS(diff);
       const s = Math.ceil(diff / 1000);
@@ -117,13 +127,16 @@ function boot(id) {
       if (s === 0) beep(1320, 0.4);
     }
 
+    // バーは「経過の溜まり具合」(0→100%)＋％表示。残量表示だと長尺区間で止まって見えるため
     const p = sectionProgress(st.events, st.configTime, index, t);
-    $('secBar').style.width = ((1 - p) * 100).toFixed(1) + '%';
+    $('secBar').style.width = (p * 100).toFixed(1) + '%';
+    $('secPct').textContent = Math.round(p * 100) + '%';
     $('secBar').parentElement.className = 'bar' + (status === 'warn1' ? ' warn' : status === 'warn2' || status === 'over' ? ' danger' : '');
     const first = st.configTime || st.events[0].eventTime;
     const last = st.events[st.events.length - 1].eventTime;
-    const tot = Math.max(0, Math.min(1, (t - first) / Math.max(1, last - first)));
-    $('totBar').style.width = ((1 - tot) * 100).toFixed(1) + '%';
+    const totSpan = last - first;
+    const tot = totSpan <= 0 ? 1 : Math.max(0, Math.min(1, (t - first) / totSpan));
+    $('totBar').style.width = (tot * 100).toFixed(1) + '%';
     $('totPct').textContent = Math.round(tot * 100) + '%';
 
     const nx = !finished && st.events[index + 1] ? st.events[index + 1] : null;

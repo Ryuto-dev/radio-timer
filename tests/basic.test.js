@@ -58,4 +58,18 @@ describe('format/resolve', () => {
     const txt = rundownToText([{ title: 'X', eventTime: t }]);
     assert.match(txt, /X/);
   });
+  test('sectionProgressは経過0..1・縮退区間は完了扱い', () => {
+    const base = 1_000_000;
+    const ev = [
+      { title: 'A', eventTime: base + 60000, order: 0 },
+      { title: 'B', eventTime: base + 120000, order: 1 },
+    ];
+    assert.equal(sectionProgress(ev, base, 0, base), 0);
+    assert.equal(sectionProgress(ev, base, 0, base + 30000), 0.5);
+    assert.equal(sectionProgress(ev, base, 0, base + 60000), 1);
+    assert.equal(sectionProgress(ev, base, 1, base + 90000), 0.5);
+    // 開始>=終了の縮退区間は固まらず完了(1)
+    assert.equal(sectionProgress(ev, base + 999999, 0, base), 1);
+    assert.equal(sectionProgress([{ title: 'X', eventTime: base }], base, 0, base), 1);
+  });
 });

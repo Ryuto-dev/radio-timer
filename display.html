@@ -29,7 +29,7 @@
     <div id="statusLine" class="status-line">STANDBY</div>
     <div id="nextLine" class="next-line"></div>
     <div class="bars">
-      <div class="bar-row"><span id="secLabel">区間</span><div class="bar"><i id="secBar"></i></div><span></span></div>
+      <div class="bar-row"><span id="secLabel">区間</span><div class="bar"><i id="secBar"></i></div><span id="secPct" class="mono">-%</span></div>
       <div class="bar-row"><span>全体</span><div class="bar"><i id="totBar"></i></div><span id="totPct" class="mono">-%</span></div>
     </div>
   </section>
@@ -50,6 +50,7 @@
         <li>残りわずかでカウントの色が変わります（秒数は送信側で変更可）</li>
         <li>終了後は超過時間を赤色で表示します</li>
         <li>残り10秒からカウント音が鳴ります（🔔でON/OFF）</li>
+        <li>バーは区間と全体の進み具合です（％付き）</li>
         <li>送信側のCUEはピンクのテロップに即時反映されます</li>
       </ul>
       <p class="muted" style="font-size:12px">URLに <code>?id=XXXXXX</code> を付けて配布してください。CUEが届いた時刻はテロップ下に表示されます。</p>

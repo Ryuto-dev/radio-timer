@@ -41,7 +41,8 @@ export function sectionProgress(events, configTime, index, now) {
   if (index > 0 && events[index - 1]?.eventTime) start = events[index - 1].eventTime;
   const end = events[index]?.eventTime ?? now;
   const total = end - start;
-  if (total <= 0) return 0;
+  // 開始>=終了の縮退区間 (遅れて送信・同一時刻など) は「完了扱い」。0を返すとバーが満タンのまま固まる
+  if (total <= 0) return 1;
   return Math.max(0, Math.min(1, (now - start) / total));
 }
 
