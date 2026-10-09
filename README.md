@@ -76,6 +76,7 @@ gh repo create radio-timer --public --source=. --push
 - `GET ?act=get&id=` → `{state, rev, exists, serverNowMs}`（即時返答）
 - `GET ?act=watch&id=&rev=N` → revが変わるまで最大約8.5秒待機して返答（長時間ポーリング）
 - `POST {act:'set', id, k, cmd:'publish'|'stop'|'resume'|'reset'|'message'|'adjust'|'flags', ...}`
+- `POST {act:'set', id, k, cmd:'sfx', sid:'ue'|'shita'}`（コールサイン再生指示。全端末へ届き、各端末のON/OFFに従い再生）
 - `POST {act:'setSettings', id, k, warn1Sec, warn2Sec}`
 - `POST {act:'hb', id, fs}`（管理キー不要・表示側の生存報告。revは増やさない）
 - state: `{id, state, stopped, events[{title,eventTime,order,mode}], configTime, extraMessage, messageAtMs, warn1Sec, warn2Sec, flash, promptOnly, rev, stage{lastSeen,fullscreen,ackMs}}`
@@ -84,7 +85,8 @@ gh repo create radio-timer --public --source=. --push
 
 ```
 index.html  console.html  display.html  rooms.html  config.html(→consoleへ転送)
-assets/js/{store,parse,format,console,display}.js
+assets/js/{store,parse,format,rows,console,display,callsigns}.js
+assets/callsigns/{ue,shita}.wav
 assets/css/{tokens,console,display}.css
 api/room.js  vercel.json  package.json
 legacy/config-v7.html  tests/basic.test.js  tests/watch.test.js

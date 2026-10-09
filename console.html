@@ -89,6 +89,14 @@
       </section>
 
       <section class="card">
+        <h2>📢 コールサイン <span class="sub">全端末へ一斉再生指示</span></h2>
+        <div id="csList" class="btnrow"></div>
+        <div id="csState" class="sendstate"></div>
+        <label class="switch" style="margin-top:6px"><input type="checkbox" id="csLocal" checked> この端末でも音を出す</label>
+        <p class="hint">再生指示は表示側・他の送信側にも届きます。鳴らすかどうかは端末ごとのスイッチに従います。</p>
+      </section>
+
+      <section class="card">
         <h2>🎨 カウント色の切替 <span class="sub">表示側の色変化</span></h2>
         <div class="row2">
           <div class="field"><label>黄表示（残り何秒）</label><input id="warn1" type="number" min="0" max="3600" value="60"></div>

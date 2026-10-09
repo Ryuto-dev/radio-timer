@@ -1,6 +1,7 @@
 import { TimerSync } from './store.js';
 import { fmtHMS, fmtClock, fmtDateJa, resolveCurrent, sectionProgress, statusFor } from './format.js';
 import { msToClock } from './rows.js';
+import { callsignById, playCallsignFile, preloadCallsings } from './callsigns.js';
 
 const q = new URLSearchParams(location.search);
 const roomId = (q.get('id') || '').replace(/\D/g, '');
@@ -42,7 +43,34 @@ function beep(freq = 880, dur = 0.12, gain = 0.08) {
 
 function boot(id) {
   const sync = new TimerSync(id, { pollMs: 2000 });
-  sync.onUpdate((st) => { sync._lastOk = Date.now(); render(st); });
+  let lastSfxAt = 0;
+  let sfxTimer = null;
+  const showSfx = (text, ms = 6000) => {
+    const el = $('sfxBadge');
+    if (!el) return;
+    el.textContent = text;
+    el.style.display = '';
+    clearTimeout(sfxTimer);
+    sfxTimer = setTimeout(() => { el.style.display = 'none'; }, ms);
+  };
+  sync.onUpdate((st) => {
+    sync._lastOk = Date.now();
+    // コールサイン再生指示: 新しい指示が来たら、この端末の音ON/OFFに従って再生
+    const at = st?.sfx?.at || 0;
+    if (at > lastSfxAt) {
+      lastSfxAt = at;
+      const cs = st.sfx.id ? callsignById(st.sfx.id) : null;
+      if (cs && Date.now() - at < 15000 && audioOn) {
+        playCallsignFile(cs.file).then((ok) => {
+          showSfx(ok ? `♪ ${cs.name}` : '♪ タップで音声有効化');
+        });
+      } else if (cs && Date.now() - at < 15000) {
+        showSfx(`受信：${cs.name}（ミュート中）`);
+      }
+    }
+    render(st);
+  });
+  preloadCallsings();
   sync.start();
   setInterval(() => { try { sync.hb(document.fullscreenElement != null); } catch {} }, 5000);
   setInterval(() => render(sync.state), 250); // カウントダウン滑らか化

@@ -93,6 +93,7 @@ function defaultRoom(id) {
     warn2Sec: 30,
     flash: false,
     promptOnly: false,
+    sfx: { id: '', at: 0 }, // 直近のコールサイン再生指示 (各端末がローカルトグルに従い再生)
     stage: { lastSeen: 0, fullscreen: false, ackMs: 0 },
     adminKey: null,
     rev: 0, // 内容更新カウンタ (watch用。hb等の生存報告では増やさない)
@@ -121,6 +122,11 @@ function fresh(id, d) {
   out.warn1Sec = Math.min(3600, Math.max(0, Number(out.warn1Sec) || 0));
   out.warn2Sec = Math.min(3600, Math.max(0, Number(out.warn2Sec) || 0));
   out.extraMessage = String(out.extraMessage || '').slice(0, 500);
+  const sfxId = String(out.sfx?.id || '');
+  out.sfx = {
+    id: /^[a-z0-9_-]{1,32}$/.test(sfxId) ? sfxId : '',
+    at: Math.max(0, Math.floor(Number(out.sfx?.at) || 0)),
+  };
   out.rev = Math.max(0, Math.floor(Number(out.rev) || 0));
   return out;
 }
@@ -292,6 +298,7 @@ export default async function handler(req, res) {
         st.extraMessage = '';
         st.flash = false;
         st.promptOnly = false;
+        st.sfx = { id: '', at: 0 };
         break;
       case 'message': {
         let txt = String(body.text ?? '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').slice(0, 500);
@@ -309,6 +316,13 @@ export default async function handler(req, res) {
         if (body.flash !== undefined) st.flash = !!body.flash;
         if (body.promptOnly !== undefined) st.promptOnly = !!body.promptOnly;
         break;
+      case 'sfx': {
+        // コールサイン再生指示。sidはサーバー側 allowlist のみ (任意URLの注入防止)
+        const sid = String(body.sid || '');
+        if (!/^(ue|shita)$/.test(sid)) return send(res, 400, { ok: false, error: 'unknown_callsign' });
+        st.sfx = { id: sid, at: now };
+        break;
+      }
       default:
         return send(res, 400, { ok: false, error: 'unknown_cmd' });
     }

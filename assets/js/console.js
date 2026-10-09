@@ -1,6 +1,7 @@
 import { TimerSync, createRoom, loadKey, displayUrl, consoleUrl } from './store.js';
 import { parseRundown } from './parse.js';
 import { makeRow, computeRows, rowsSummary, rowsToEvents, eventsToRows, msToClock, fmtOffset, PRESETS } from './rows.js';
+import { CALLSIGNS, callsignById, playCallsignFile, preloadCallsings } from './callsigns.js';
 import { fmtHMS, fmtClock, resolveCurrent, statusFor } from './format.js';
 
 const q = new URLSearchParams(location.search);
@@ -263,6 +264,40 @@ function boot(id, key) {
   $('clearMsgBtn').onclick = () => { $('msgInput').value = ''; cueState('CUE送信中…'); sync.message('').then(() => { cueState('CUE消去済み'); flash('CUE消去'); }).catch((e) => { cueState('CUE送信失敗: ' + e.message); }); };
   $('flashTgl').onchange = (e) => sync.flags({ flash: e.target.checked }).catch(() => {});
   $('promptTgl').onchange = (e) => sync.flags({ promptOnly: e.target.checked }).catch(() => {});
+
+  // ---------- コールサイン ----------
+  try { $('csLocal').checked = localStorage.getItem('sc-cs-local') !== '0'; } catch {}
+  $('csLocal').onchange = (e) => { try { localStorage.setItem('sc-cs-local', e.target.checked ? '1' : '0'); } catch {} };
+  CALLSIGNS.forEach((cs) => {
+    const b = document.createElement('button');
+    b.className = 'secondary';
+    b.textContent = `▶ ${cs.name}`;
+    b.disabled = !isAdmin;
+    b.onclick = async () => {
+      $('csState').textContent = '再生指示を送信中…';
+      try {
+        await sync.playCallsign(cs.id);
+        $('csState').textContent = `再生指示を送信：${cs.name}（${fmtClock(new Date())}）`;
+      } catch (e) { $('csState').textContent = '送信失敗: ' + e.message; }
+    };
+    $('csList').appendChild(b);
+  });
+  let lastSfxAt = 0;
+  sync.onUpdate((st) => {
+    const at = st?.sfx?.at || 0;
+    if (at <= lastSfxAt) return;
+    lastSfxAt = at;
+    const cs = st.sfx.id ? callsignById(st.sfx.id) : null;
+    if (!cs || Date.now() - at >= 15000) return; // 古い指示は鳴らさない
+    if ($('csLocal').checked) {
+      playCallsignFile(cs.file).then((ok) => {
+        $('csState').textContent = ok ? `♪ 再生中：${cs.name}` : '音声がブロックされました（画面を一度タップ）';
+      });
+    } else {
+      $('csState').textContent = `受信：${cs.name}（この端末はミュート中）`;
+    }
+  });
+  preloadCallsings();
 
   window.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); doPublish(); }

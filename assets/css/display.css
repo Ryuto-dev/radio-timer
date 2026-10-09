@@ -25,6 +25,12 @@ body.studio { background: #0e131a; color: #e8edf3; }
 .studio-top .pill.on::before { background: #2fbf8f; }
 .studio-top .pill.bad { background: #3d1620; border-color: #7c2d3e; color: #f3b7c2; }
 .studio-top .pill.bad::before { background: #d6455f; }
+.sfx-badge {
+  font-size: 12px; font-weight: 800;
+  background: #10342a; color: #9fe0c3;
+  border: 1px solid #1d6a52; border-radius: 999px;
+  padding: 4px 12px;
+}
 .clock { font-family: var(--mono); font-size: 20px; font-weight: 700; color: #e8edf3; }
 #dateLine { color: #7d8a9d !important; }
 .stage {

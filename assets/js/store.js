@@ -60,6 +60,7 @@ export class TimerSync {
   message(text) { return this.post({ act: 'set', cmd: 'message', text }); }
   adjust(sec) { return this.post({ act: 'set', cmd: 'adjust', sec }); }
   flags(patch) { return this.post({ act: 'set', cmd: 'flags', ...patch }); }
+  playCallsign(sid) { return this.post({ act: 'set', cmd: 'sfx', sid }); }
   saveSettings(patch) { return this.post({ act: 'setSettings', ...patch }); }
   hb(fullscreen) { return this.post({ act: 'hb', fs: !!fullscreen }).catch(() => null); }
   ack() {
