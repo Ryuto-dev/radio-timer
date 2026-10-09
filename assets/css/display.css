@@ -56,7 +56,21 @@ body.studio { background: #170a26; color: #fff; }
   letter-spacing: .02em;
 }
 .status-line { margin-top: 6px; font-weight: 800; letter-spacing: .08em; font-size: 15px; color: #c9b8ec; }
-.next-line { margin-top: 8px; color: #ffe3ef; font-size: clamp(14px, 2.4vw, 19px); font-weight: 700; }
+.next-cue {
+  margin: 12px auto 0; max-width: 720px;
+  display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
+  background: rgba(255, 77, 141, .12);
+  border: 2px solid #ff4d8d; border-radius: 999px;
+  padding: 8px 18px;
+  font-size: clamp(15px, 2.6vw, 21px); font-weight: 800;
+}
+.nc-label {
+  background: linear-gradient(135deg, #ff4d8d, #ff7a3d);
+  color: #fff; font-size: 12px; letter-spacing: .12em;
+  border-radius: 999px; padding: 3px 10px; font-weight: 900;
+}
+#nextTitle { color: #fff; }
+#nextTime { color: #ffd3e3; font-size: .85em; }
 
 /* ステータス色 */
 .main-panel[data-status="normal"] { --glow: radial-gradient(60% 90% at 50% 0%, rgba(0, 211, 255, .18), transparent); }

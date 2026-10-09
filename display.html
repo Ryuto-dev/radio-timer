@@ -27,7 +27,11 @@
     <div id="evTitle" class="ev-title">待機中...</div>
     <div id="count" class="count">--:--:--</div>
     <div id="statusLine" class="status-line">STANDBY</div>
-    <div id="nextLine" class="next-line"></div>
+    <div id="nextCue" class="next-cue" style="display:none">
+      <span class="nc-label">NEXT CUE</span>
+      <span id="nextTitle"></span>
+      <span id="nextTime" class="mono"></span>
+    </div>
     <div class="bars">
       <div class="bar-row"><span id="secLabel">区間</span><div class="bar"><i id="secBar"></i></div><span id="secPct" class="mono">-%</span></div>
       <div class="bar-row"><span>全体</span><div class="bar"><i id="totBar"></i></div><span id="totPct" class="mono">-%</span></div>

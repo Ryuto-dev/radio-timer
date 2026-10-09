@@ -1,11 +1,18 @@
 import { TimerSync } from './store.js';
 import { fmtHMS, fmtClock, fmtDateJa, resolveCurrent, sectionProgress, statusFor } from './format.js';
+import { msToClock } from './rows.js';
 
 const q = new URLSearchParams(location.search);
 const roomId = (q.get('id') || '').replace(/\D/g, '');
 
 const $ = (id) => document.getElementById(id);
 const stage = $('stage'), enter = $('enter');
+
+// NOTE: boot()/render()より前で初期化すること。
+// 下の分岐で即 boot(roomId) が走るため、letが後だとTDZで描画が途死する
+let audioOn = q.get('sound') !== '0';
+let audioCtx = null;
+let lastSec = null;
 
 if (!roomId) {
   stage.classList.add('hidden');
@@ -18,10 +25,6 @@ if (!roomId) {
   $('roomBadge').textContent = 'ROOM ' + roomId;
   boot(roomId);
 }
-
-let audioOn = q.get('sound') !== '0';
-let audioCtx = null;
-let lastSec = null;
 
 function beep(freq = 880, dur = 0.12, gain = 0.08) {
   if (!audioOn) return;
@@ -59,6 +62,15 @@ function boot(id) {
     if (audioOn && !audioCtx) beep(660, 0.06, 0.03);
   });
 
+  function setNextCue(title, sub) {
+    const box = $('nextCue');
+    if (!box) return;
+    if (!title) { box.style.display = 'none'; return; }
+    box.style.display = '';
+    $('nextTitle').textContent = title;
+    $('nextTime').textContent = sub || '';
+  }
+
   function render(st) {
     $('conn').className = 'pill ' + (sync.connected ? 'on' : 'bad');
     $('conn').textContent = sync.connected ? '接続中' : '未接続';
@@ -72,7 +84,7 @@ function boot(id) {
       $('evTitle').textContent = stopped ? 'タイマー停止中' : '待機中 — 番組表の送信待ち';
       $('count').textContent = '--:--:--';
       $('statusLine').textContent = stopped ? 'STOPPED' : 'STANDBY';
-      $('nextLine').textContent = '';
+      setNextCue(null);
       $('secBar').style.width = '0%';
       $('secPct').textContent = '-%';
       $('totBar').style.width = '0%';
@@ -88,6 +100,7 @@ function boot(id) {
       $('evTitle').textContent = 'タイマー停止中';
       $('count').textContent = '--:--:--';
       $('statusLine').textContent = 'STOPPED';
+      setNextCue(null);
       $('secBar').style.width = '0%';
       $('secPct').textContent = '-%';
       $('totBar').style.width = '0%';
@@ -140,9 +153,9 @@ function boot(id) {
     $('totPct').textContent = Math.round(tot * 100) + '%';
 
     const nx = !finished && st.events[index + 1] ? st.events[index + 1] : null;
-    $('nextLine').textContent = nx
-      ? `NEXT ▶ ${nx.title}（あと ${fmtHMS(nx.eventTime - t)}）`
-      : finished ? '' : 'NEXT ▶ — 最終イベント —';
+    if (finished) setNextCue(null);
+    else if (nx) setNextCue(nx.title, `${msToClock(nx.eventTime)} 開始（あと ${fmtHMS(nx.eventTime - t)}）`);
+    else setNextCue('最終キュー', 'この後 番組終了');
 
     renderTicker(st);
     renderRundown(st, finished ? -2 : index, t);
