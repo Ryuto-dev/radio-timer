@@ -51,8 +51,9 @@ npx serve . -l 3000
 ## Vercelデプロイ（KVあり＝本番推奨）
 
 1. GitHubにpush（下記）後、Vercelで **Add New Project → Import**。
-2. Vercelダッシュボード → **Storage → Create Database → KV** を作成し、プロジェクトに接続（`KV_REST_API_URL / KV_REST_API_TOKEN` が自動設定される）。
-3. Redeploy。これで複数端末・複数拠点で同期する。
+2. Vercelダッシュボード上部の **Marketplace** で **Upstash for Redis** をインストールし、`radio-timer` に接続（対象環境はProduction＋Preview）。旧来の「Storage → KV」は廃止済みのためこちらを使う。
+3. プロジェクトの **Settings → Environment Variables** に `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`（または旧名の `KV_REST_API_URL` / `KV_REST_API_TOKEN`）が入ったことを確認。
+4. **Redeploy**（環境変数は再デプロイで反映）。`/api/room?act=health` が `{"ok":true,"kv":true}` なら接続成功。これで複数端末・複数拠点で同期する。
 
 KV未接続でも動くが、Vercelのサーバレスはインスタンス毎にメモリが別なため、**本番はKV必須**。未接続時は同一PCデモ・単一インスタンスのみ。
 
